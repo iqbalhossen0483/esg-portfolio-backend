@@ -1,0 +1,789 @@
+{
+  "info": {
+    "name": "ESG Portfolio Optimization API",
+    "description": "Full API collection for the ESG Portfolio Optimization Chatbot backend.",
+    "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
+  },
+  "variable": [
+    {
+      "key": "base_url",
+      "value": "http://localhost:8000",
+      "type": "string"
+    },
+    {
+      "key": "access_token",
+      "value": "",
+      "type": "string"
+    },
+    {
+      "key": "refresh_token",
+      "value": "",
+      "type": "string"
+    },
+    {
+      "key": "session_id",
+      "value": "",
+      "type": "string"
+    },
+    {
+      "key": "job_id",
+      "value": "",
+      "type": "string"
+    },
+    {
+      "key": "model_id",
+      "value": "",
+      "type": "string"
+    }
+  ],
+  "auth": {
+    "type": "bearer",
+    "bearer": [
+      {
+        "key": "token",
+        "value": "{{access_token}}",
+        "type": "string"
+      }
+    ]
+  },
+  "item": [
+    {
+      "name": "Health",
+      "item": [
+        {
+          "name": "Health Check",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{base_url}}/health",
+              "host": ["{{base_url}}"],
+              "path": ["health"]
+            }
+          }
+        }
+      ]
+    },
+    {
+      "name": "Auth",
+      "item": [
+        {
+          "name": "Register",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "if (pm.response.code === 201) {",
+                  "    var json = pm.response.json();",
+                  "    pm.collectionVariables.set('user_id', json.user_id);",
+                  "    pm.test('Registration successful', function () {",
+                  "        pm.expect(json.message).to.include('created');",
+                  "    });",
+                  "}"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ],
+          "request": {
+            "auth": { "type": "noauth" },
+            "method": "POST",
+            "header": [
+              { "key": "Content-Type", "value": "application/json" }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n    \"email\": \"investor@example.com\",\n    \"password\": \"password123\",\n    \"full_name\": \"Test Investor\"\n}"
+            },
+            "url": {
+              "raw": "{{base_url}}/api/auth/register",
+              "host": ["{{base_url}}"],
+              "path": ["api", "auth", "register"]
+            }
+          }
+        },
+        {
+          "name": "Register Admin",
+          "request": {
+            "auth": { "type": "noauth" },
+            "method": "POST",
+            "header": [
+              { "key": "Content-Type", "value": "application/json" }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n    \"email\": \"admin@example.com\",\n    \"password\": \"admin123\",\n    \"full_name\": \"Admin User\"\n}"
+            },
+            "url": {
+              "raw": "{{base_url}}/api/auth/register",
+              "host": ["{{base_url}}"],
+              "path": ["api", "auth", "register"]
+            },
+            "description": "Note: After registering, manually update the user's role to 'admin' in the database:\nUPDATE users SET role = 'admin' WHERE email = 'admin@example.com';"
+          }
+        },
+        {
+          "name": "Login (Investor)",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "if (pm.response.code === 200) {",
+                  "    var json = pm.response.json();",
+                  "    pm.collectionVariables.set('access_token', json.access_token);",
+                  "    pm.collectionVariables.set('refresh_token', json.refresh_token);",
+                  "    pm.test('Login successful', function () {",
+                  "        pm.expect(json.access_token).to.not.be.empty;",
+                  "        pm.expect(json.user.role).to.equal('investor');",
+                  "    });",
+                  "}"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ],
+          "request": {
+            "auth": { "type": "noauth" },
+            "method": "POST",
+            "header": [
+              { "key": "Content-Type", "value": "application/json" }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n    \"email\": \"investor@example.com\",\n    \"password\": \"password123\"\n}"
+            },
+            "url": {
+              "raw": "{{base_url}}/api/auth/login",
+              "host": ["{{base_url}}"],
+              "path": ["api", "auth", "login"]
+            }
+          }
+        },
+        {
+          "name": "Login (Admin)",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "if (pm.response.code === 200) {",
+                  "    var json = pm.response.json();",
+                  "    pm.collectionVariables.set('access_token', json.access_token);",
+                  "    pm.collectionVariables.set('refresh_token', json.refresh_token);",
+                  "    pm.test('Admin login successful', function () {",
+                  "        pm.expect(json.user.role).to.equal('admin');",
+                  "    });",
+                  "}"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ],
+          "request": {
+            "auth": { "type": "noauth" },
+            "method": "POST",
+            "header": [
+              { "key": "Content-Type", "value": "application/json" }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n    \"email\": \"admin@example.com\",\n    \"password\": \"admin123\"\n}"
+            },
+            "url": {
+              "raw": "{{base_url}}/api/auth/login",
+              "host": ["{{base_url}}"],
+              "path": ["api", "auth", "login"]
+            }
+          }
+        },
+        {
+          "name": "Refresh Token",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "if (pm.response.code === 200) {",
+                  "    var json = pm.response.json();",
+                  "    pm.collectionVariables.set('access_token', json.access_token);",
+                  "}"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ],
+          "request": {
+            "auth": { "type": "noauth" },
+            "method": "POST",
+            "header": [
+              { "key": "Content-Type", "value": "application/json" }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n    \"refresh_token\": \"{{refresh_token}}\"\n}"
+            },
+            "url": {
+              "raw": "{{base_url}}/api/auth/refresh",
+              "host": ["{{base_url}}"],
+              "path": ["api", "auth", "refresh"]
+            }
+          }
+        },
+        {
+          "name": "Get Me",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{base_url}}/api/auth/me",
+              "host": ["{{base_url}}"],
+              "path": ["api", "auth", "me"]
+            }
+          }
+        },
+        {
+          "name": "Update Profile",
+          "request": {
+            "method": "PUT",
+            "header": [
+              { "key": "Content-Type", "value": "application/json" }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n    \"full_name\": \"Updated Name\"\n}"
+            },
+            "url": {
+              "raw": "{{base_url}}/api/auth/me",
+              "host": ["{{base_url}}"],
+              "path": ["api", "auth", "me"]
+            }
+          }
+        },
+        {
+          "name": "Change Password",
+          "request": {
+            "method": "PUT",
+            "header": [
+              { "key": "Content-Type", "value": "application/json" }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n    \"old_password\": \"password123\",\n    \"new_password\": \"newpassword456\"\n}"
+            },
+            "url": {
+              "raw": "{{base_url}}/api/auth/change-password",
+              "host": ["{{base_url}}"],
+              "path": ["api", "auth", "change-password"]
+            }
+          }
+        },
+        {
+          "name": "Forgot Password",
+          "request": {
+            "auth": { "type": "noauth" },
+            "method": "POST",
+            "header": [
+              { "key": "Content-Type", "value": "application/json" }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n    \"email\": \"investor@example.com\"\n}"
+            },
+            "url": {
+              "raw": "{{base_url}}/api/auth/forgot-password",
+              "host": ["{{base_url}}"],
+              "path": ["api", "auth", "forgot-password"]
+            }
+          }
+        },
+        {
+          "name": "Logout",
+          "request": {
+            "method": "POST",
+            "header": [],
+            "url": {
+              "raw": "{{base_url}}/api/auth/logout",
+              "host": ["{{base_url}}"],
+              "path": ["api", "auth", "logout"]
+            }
+          }
+        }
+      ]
+    },
+    {
+      "name": "Chat",
+      "item": [
+        {
+          "name": "Send Message (New Session)",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "if (pm.response.code === 200) {",
+                  "    var json = pm.response.json();",
+                  "    pm.collectionVariables.set('session_id', json.session_id);",
+                  "}"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              { "key": "Content-Type", "value": "application/json" }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n    \"message\": \"Which sectors are best for ESG investing?\"\n}"
+            },
+            "url": {
+              "raw": "{{base_url}}/api/chat",
+              "host": ["{{base_url}}"],
+              "path": ["api", "chat"]
+            }
+          }
+        },
+        {
+          "name": "Send Message (Continue Session)",
+          "request": {
+            "method": "POST",
+            "header": [
+              { "key": "Content-Type", "value": "application/json" }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n    \"message\": \"Tell me more about the top sector\",\n    \"session_id\": \"{{session_id}}\"\n}"
+            },
+            "url": {
+              "raw": "{{base_url}}/api/chat",
+              "host": ["{{base_url}}"],
+              "path": ["api", "chat"]
+            }
+          }
+        },
+        {
+          "name": "Send Message — Portfolio",
+          "request": {
+            "method": "POST",
+            "header": [
+              { "key": "Content-Type", "value": "application/json" }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n    \"message\": \"Build me a $50,000 portfolio with low risk and high ESG\"\n}"
+            },
+            "url": {
+              "raw": "{{base_url}}/api/chat",
+              "host": ["{{base_url}}"],
+              "path": ["api", "chat"]
+            }
+          }
+        },
+        {
+          "name": "Send Message — Compare",
+          "request": {
+            "method": "POST",
+            "header": [
+              { "key": "Content-Type", "value": "application/json" }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n    \"message\": \"Compare Apple and Microsoft for ESG investing\"\n}"
+            },
+            "url": {
+              "raw": "{{base_url}}/api/chat",
+              "host": ["{{base_url}}"],
+              "path": ["api", "chat"]
+            }
+          }
+        },
+        {
+          "name": "Send Message — Education",
+          "request": {
+            "method": "POST",
+            "header": [
+              { "key": "Content-Type", "value": "application/json" }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n    \"message\": \"What is the Sharpe ratio and why does it matter?\"\n}"
+            },
+            "url": {
+              "raw": "{{base_url}}/api/chat",
+              "host": ["{{base_url}}"],
+              "path": ["api", "chat"]
+            }
+          }
+        },
+        {
+          "name": "List Chat Sessions",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{base_url}}/api/chat/sessions",
+              "host": ["{{base_url}}"],
+              "path": ["api", "chat", "sessions"]
+            }
+          }
+        },
+        {
+          "name": "Get Session Messages",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{base_url}}/api/chat/sessions/{{session_id}}",
+              "host": ["{{base_url}}"],
+              "path": ["api", "chat", "sessions", "{{session_id}}"]
+            }
+          }
+        },
+        {
+          "name": "Delete Session",
+          "request": {
+            "method": "DELETE",
+            "header": [],
+            "url": {
+              "raw": "{{base_url}}/api/chat/sessions/{{session_id}}",
+              "host": ["{{base_url}}"],
+              "path": ["api", "chat", "sessions", "{{session_id}}"]
+            }
+          }
+        }
+      ]
+    },
+    {
+      "name": "Sectors",
+      "item": [
+        {
+          "name": "Get Sector Rankings",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{base_url}}/api/sectors?sort_by=composite&top_n=5",
+              "host": ["{{base_url}}"],
+              "path": ["api", "sectors"],
+              "query": [
+                { "key": "sort_by", "value": "composite", "description": "composite | sharpe | esg | low_risk" },
+                { "key": "top_n", "value": "5" }
+              ]
+            }
+          }
+        },
+        {
+          "name": "Get Sector Rankings (by ESG)",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{base_url}}/api/sectors?sort_by=esg&top_n=5",
+              "host": ["{{base_url}}"],
+              "path": ["api", "sectors"],
+              "query": [
+                { "key": "sort_by", "value": "esg" },
+                { "key": "top_n", "value": "5" }
+              ]
+            }
+          }
+        },
+        {
+          "name": "Get Sector Detail",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{base_url}}/api/sectors/Technology",
+              "host": ["{{base_url}}"],
+              "path": ["api", "sectors", "Technology"]
+            }
+          }
+        }
+      ]
+    },
+    {
+      "name": "Companies",
+      "item": [
+        {
+          "name": "List Companies",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{base_url}}/api/companies?top_n=10",
+              "host": ["{{base_url}}"],
+              "path": ["api", "companies"],
+              "query": [
+                { "key": "top_n", "value": "10" }
+              ]
+            }
+          }
+        },
+        {
+          "name": "List Companies (Filtered)",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{base_url}}/api/companies?sector=Technology&min_esg=60&min_sharpe=1.0&top_n=10",
+              "host": ["{{base_url}}"],
+              "path": ["api", "companies"],
+              "query": [
+                { "key": "sector", "value": "Technology" },
+                { "key": "min_esg", "value": "60" },
+                { "key": "min_sharpe", "value": "1.0" },
+                { "key": "top_n", "value": "10" }
+              ]
+            }
+          }
+        },
+        {
+          "name": "Get Company Detail",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{base_url}}/api/companies/AAPL",
+              "host": ["{{base_url}}"],
+              "path": ["api", "companies", "AAPL"]
+            }
+          }
+        },
+        {
+          "name": "Find Similar Companies",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{base_url}}/api/companies/AAPL/similar?min_esg=60&top_n=5",
+              "host": ["{{base_url}}"],
+              "path": ["api", "companies", "AAPL", "similar"],
+              "query": [
+                { "key": "min_esg", "value": "60" },
+                { "key": "top_n", "value": "5" }
+              ]
+            }
+          }
+        }
+      ]
+    },
+    {
+      "name": "Portfolio",
+      "item": [
+        {
+          "name": "Optimize Portfolio",
+          "request": {
+            "method": "POST",
+            "header": [
+              { "key": "Content-Type", "value": "application/json" }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n    \"risk_tolerance\": \"balanced\",\n    \"esg_importance\": \"high\",\n    \"investment_amount\": 50000,\n    \"max_stocks\": 15\n}"
+            },
+            "url": {
+              "raw": "{{base_url}}/api/portfolio/optimize",
+              "host": ["{{base_url}}"],
+              "path": ["api", "portfolio", "optimize"]
+            }
+          }
+        },
+        {
+          "name": "Optimize Portfolio (Conservative)",
+          "request": {
+            "method": "POST",
+            "header": [
+              { "key": "Content-Type", "value": "application/json" }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n    \"risk_tolerance\": \"conservative\",\n    \"esg_importance\": \"high\",\n    \"investment_amount\": 100000,\n    \"max_stocks\": 20,\n    \"excluded_sectors\": [\"Energy\"]\n}"
+            },
+            "url": {
+              "raw": "{{base_url}}/api/portfolio/optimize",
+              "host": ["{{base_url}}"],
+              "path": ["api", "portfolio", "optimize"]
+            }
+          }
+        },
+        {
+          "name": "Analyze Portfolio",
+          "request": {
+            "method": "POST",
+            "header": [
+              { "key": "Content-Type", "value": "application/json" }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n    \"holdings\": {\n        \"AAPL\": 0.20,\n        \"MSFT\": 0.25,\n        \"JNJ\": 0.15,\n        \"JPM\": 0.15,\n        \"GOOGL\": 0.25\n    }\n}"
+            },
+            "url": {
+              "raw": "{{base_url}}/api/portfolio/analyze",
+              "host": ["{{base_url}}"],
+              "path": ["api", "portfolio", "analyze"]
+            }
+          }
+        },
+        {
+          "name": "Get Pareto Frontier",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{base_url}}/api/portfolio/pareto?top_n=20",
+              "host": ["{{base_url}}"],
+              "path": ["api", "portfolio", "pareto"],
+              "query": [
+                { "key": "top_n", "value": "20" }
+              ]
+            }
+          }
+        }
+      ]
+    },
+    {
+      "name": "Training (Admin)",
+      "item": [
+        {
+          "name": "Upload Data File",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "if (pm.response.code === 200) {",
+                  "    var json = pm.response.json();",
+                  "    pm.collectionVariables.set('job_id', json.job_id);",
+                  "}"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [],
+            "body": {
+              "mode": "formdata",
+              "formdata": [
+                {
+                  "key": "file",
+                  "type": "file",
+                  "src": "",
+                  "description": "Select an xlsx, csv, or pdf file"
+                }
+              ]
+            },
+            "url": {
+              "raw": "{{base_url}}/api/training/upload",
+              "host": ["{{base_url}}"],
+              "path": ["api", "training", "upload"]
+            },
+            "description": "Upload a data file. Requires admin role.\nSupported formats: .xlsx, .xls, .csv, .pdf"
+          }
+        },
+        {
+          "name": "Get Ingestion Status",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{base_url}}/api/training/status/{{job_id}}",
+              "host": ["{{base_url}}"],
+              "path": ["api", "training", "status", "{{job_id}}"]
+            }
+          }
+        },
+        {
+          "name": "Get Ingestion History",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{base_url}}/api/training/history?limit=20",
+              "host": ["{{base_url}}"],
+              "path": ["api", "training", "history"],
+              "query": [
+                { "key": "limit", "value": "20" }
+              ]
+            }
+          }
+        },
+        {
+          "name": "Trigger Metric Recomputation",
+          "request": {
+            "method": "POST",
+            "header": [],
+            "url": {
+              "raw": "{{base_url}}/api/training/recompute",
+              "host": ["{{base_url}}"],
+              "path": ["api", "training", "recompute"]
+            }
+          }
+        }
+      ]
+    },
+    {
+      "name": "Admin",
+      "item": [
+        {
+          "name": "Trigger Model Training",
+          "request": {
+            "method": "POST",
+            "header": [],
+            "url": {
+              "raw": "{{base_url}}/api/admin/models/train?esg_lambda=0.5&episodes=500",
+              "host": ["{{base_url}}"],
+              "path": ["api", "admin", "models", "train"],
+              "query": [
+                { "key": "esg_lambda", "value": "0.5" },
+                { "key": "episodes", "value": "500" }
+              ]
+            }
+          }
+        },
+        {
+          "name": "List Models",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{base_url}}/api/admin/models",
+              "host": ["{{base_url}}"],
+              "path": ["api", "admin", "models"]
+            }
+          }
+        },
+        {
+          "name": "Activate Model",
+          "request": {
+            "method": "PUT",
+            "header": [],
+            "url": {
+              "raw": "{{base_url}}/api/admin/models/{{model_id}}/activate",
+              "host": ["{{base_url}}"],
+              "path": ["api", "admin", "models", "{{model_id}}", "activate"]
+            }
+          }
+        },
+        {
+          "name": "Pipeline Status",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{base_url}}/api/admin/pipeline/status",
+              "host": ["{{base_url}}"],
+              "path": ["api", "admin", "pipeline", "status"]
+            }
+          }
+        }
+      ]
+    }
+  ]
+}

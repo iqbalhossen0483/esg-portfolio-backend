@@ -13,7 +13,9 @@ sio = socketio.AsyncServer(async_mode="asgi", cors_allowed_origins="*")
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     # Startup: register Socket.IO handlers
+    from core.adk.chat_socket import register_chat_handlers
     from core.adk.training_socket import register_training_handlers
+    register_chat_handlers(sio)
     register_training_handlers(sio)
     yield
     # Shutdown: cleanup
