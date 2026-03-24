@@ -1,6 +1,6 @@
 """Socket.IO handlers for chat: thinking steps + response streaming."""
 
-from datetime import datetime
+from datetime import datetime, timezone
 
 from google.genai import types
 
@@ -63,7 +63,7 @@ def register_chat_handlers(sio):
                 user_id=user_id,
                 state={
                     "session_title": message[:80],
-                    "created_at": datetime.utcnow().isoformat(),
+                    "created_at": datetime.now(timezone.utc).isoformat(),
                 },
             )
             session_id = adk_session.id

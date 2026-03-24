@@ -33,7 +33,7 @@ celery[redis]>=5.4.0
 
 # Auth (full backend auth: JWT + password hashing)
 python-jose[cryptography]>=3.3.0
-passlib[bcrypt]>=1.7.0
+bcrypt>=5.0.0
 
 # Utilities (pydantic comes with FastAPI, python-dotenv comes with pydantic-settings)
 pydantic-settings>=2.7.0

@@ -3,7 +3,7 @@ Parses file → chunks → processes each chunk via ADK agent pipeline.
 """
 
 import uuid
-from datetime import datetime
+from datetime import datetime, timezone
 
 from google.adk.runners import Runner
 from google.adk.sessions import InMemorySessionService
@@ -140,5 +140,5 @@ async def run_training_pipeline(
         }, room=sid)
 
     results["status"] = "completed"
-    results["completed_at"] = datetime.utcnow().isoformat()
+    results["completed_at"] = datetime.now(timezone.utc).isoformat()
     return results

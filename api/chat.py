@@ -1,6 +1,6 @@
 """Chat API endpoints — powered by ADK DatabaseSessionService."""
 
-from datetime import datetime
+from datetime import datetime, timezone
 
 from fastapi import APIRouter, Depends
 from google.genai import types
@@ -33,7 +33,7 @@ async def send_message(request: ChatRequest, user: User = Depends(get_current_us
             user_id=user_id,
             state={
                 "session_title": request.message[:80],
-                "created_at": datetime.utcnow().isoformat(),
+                "created_at": datetime.now(timezone.utc).isoformat(),
             },
         )
         session_id = session.id

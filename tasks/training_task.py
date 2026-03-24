@@ -1,7 +1,7 @@
 """Celery task for DRL model training."""
 
 import asyncio
-from datetime import datetime
+from datetime import datetime, timezone
 
 import numpy as np
 import pandas as pd
@@ -102,7 +102,7 @@ async def _train_model(esg_lambda: float = 0.5, episodes: int = 500):
             "model_name": f"mappo_{datetime.now().strftime('%Y%m%d_%H%M%S')}",
             "model_path": train_result["model_path"],
             "architecture": "mappo_ra_drl",
-            "trained_at": datetime.utcnow(),
+            "trained_at": datetime.now(timezone.utc),
             "train_sharpe": train_result.get("training_history", [{}])[-1].get("avg_reward", 0),
             "test_sharpe": eval_result.get("sharpe_ratio", 0),
             "train_esg": float(esg_array.mean() * 100),

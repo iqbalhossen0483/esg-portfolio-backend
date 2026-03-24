@@ -104,26 +104,6 @@
           }
         },
         {
-          "name": "Register Admin",
-          "request": {
-            "auth": { "type": "noauth" },
-            "method": "POST",
-            "header": [
-              { "key": "Content-Type", "value": "application/json" }
-            ],
-            "body": {
-              "mode": "raw",
-              "raw": "{\n    \"email\": \"admin@example.com\",\n    \"password\": \"admin123\",\n    \"full_name\": \"Admin User\"\n}"
-            },
-            "url": {
-              "raw": "{{base_url}}/api/auth/register",
-              "host": ["{{base_url}}"],
-              "path": ["api", "auth", "register"]
-            },
-            "description": "Note: After registering, manually update the user's role to 'admin' in the database:\nUPDATE users SET role = 'admin' WHERE email = 'admin@example.com';"
-          }
-        },
-        {
           "name": "Login (Investor)",
           "event": [
             {
@@ -730,7 +710,95 @@
     },
     {
       "name": "Admin",
+      "description": "All endpoints require admin role. First login as admin, then use these.",
       "item": [
+        {
+          "name": "Create User (Admin only)",
+          "request": {
+            "method": "POST",
+            "header": [
+              { "key": "Content-Type", "value": "application/json" }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n    \"email\": \"newadmin@example.com\",\n    \"password\": \"admin123\",\n    \"full_name\": \"New Admin\",\n    \"role\": \"admin\"\n}"
+            },
+            "url": {
+              "raw": "{{base_url}}/api/admin/users",
+              "host": ["{{base_url}}"],
+              "path": ["api", "admin", "users"]
+            },
+            "description": "Create a user with a specific role. Only admins can create admin accounts.\nRole must be 'investor' or 'admin'."
+          }
+        },
+        {
+          "name": "List All Users",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{base_url}}/api/admin/users",
+              "host": ["{{base_url}}"],
+              "path": ["api", "admin", "users"]
+            }
+          }
+        },
+        {
+          "name": "List Users by Role",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{base_url}}/api/admin/users?role=admin",
+              "host": ["{{base_url}}"],
+              "path": ["api", "admin", "users"],
+              "query": [
+                { "key": "role", "value": "admin", "description": "investor or admin" }
+              ]
+            }
+          }
+        },
+        {
+          "name": "Change User Role",
+          "request": {
+            "method": "PUT",
+            "header": [],
+            "url": {
+              "raw": "{{base_url}}/api/admin/users/{{user_id}}/role?role=admin",
+              "host": ["{{base_url}}"],
+              "path": ["api", "admin", "users", "{{user_id}}", "role"],
+              "query": [
+                { "key": "role", "value": "admin", "description": "investor or admin" }
+              ]
+            },
+            "description": "Cannot change your own role."
+          }
+        },
+        {
+          "name": "Deactivate User",
+          "request": {
+            "method": "PUT",
+            "header": [],
+            "url": {
+              "raw": "{{base_url}}/api/admin/users/{{user_id}}/deactivate",
+              "host": ["{{base_url}}"],
+              "path": ["api", "admin", "users", "{{user_id}}", "deactivate"]
+            },
+            "description": "Cannot deactivate your own account."
+          }
+        },
+        {
+          "name": "Activate User",
+          "request": {
+            "method": "PUT",
+            "header": [],
+            "url": {
+              "raw": "{{base_url}}/api/admin/users/{{user_id}}/activate",
+              "host": ["{{base_url}}"],
+              "path": ["api", "admin", "users", "{{user_id}}", "activate"]
+            }
+          }
+        },
         {
           "name": "Trigger Model Training",
           "request": {

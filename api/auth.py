@@ -1,4 +1,4 @@
-from datetime import datetime, timedelta
+from datetime import datetime, timedelta, timezone
 
 from fastapi import APIRouter, Depends, HTTPException, status
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -36,24 +36,31 @@ router = APIRouter(prefix="/auth", tags=["auth"])
 
 @router.post("/register", status_code=status.HTTP_201_CREATED)
 async def register(request: RegisterRequest, db: AsyncSession = Depends(get_db)):
-    existing = await get_user_by_email(db, request.email)
-    if existing:
-        raise HTTPException(
-            status_code=status.HTTP_409_CONFLICT,
-            detail="Email already registered",
+    try:
+        existing = await get_user_by_email(db, request.email)
+        if existing:
+            raise HTTPException(
+                status_code=status.HTTP_409_CONFLICT,
+                detail="Email already registered",
+            )
+
+        user = await create_user(
+            db,
+            {
+                "email": request.email,
+                "password_hash": hash_password(request.password),
+                "full_name": request.full_name,
+                "role": "investor",
+            },
         )
 
-    user = await create_user(
-        db,
-        {
-            "email": request.email,
-            "password_hash": hash_password(request.password),
-            "full_name": request.full_name,
-            "role": "investor",
-        },
-    )
-
-    return {"message": "Account created successfully", "user_id": str(user.id)}
+        return {"message": "Account created successfully", "user_id": str(user.id)}
+    except Exception as e:
+        print(e)
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=str(e),
+        )
 
 
 @router.post("/login")
@@ -79,12 +86,12 @@ async def login(request: LoginRequest, db: AsyncSession = Depends(get_db)):
     access_token = create_access_token(token_data)
     refresh_token = create_refresh_token(token_data)
 
-    expires_at = datetime.utcnow() + timedelta(
+    expires_at = datetime.now(timezone.utc) + timedelta(
         days=settings.JWT_REFRESH_TOKEN_EXPIRE_DAYS
     )
     await save_refresh_token(db, user.id, refresh_token, expires_at)
 
-    user.last_login_at = datetime.utcnow()
+    user.last_login_at = datetime.now(timezone.utc)
     await db.commit()
 
     return {
@@ -164,7 +171,7 @@ async def update_me(
         user.full_name = request.full_name
     if request.avatar_url is not None:
         user.avatar_url = request.avatar_url
-    user.updated_at = datetime.utcnow()
+    user.updated_at = datetime.now(timezone.utc)
     await db.commit()
     return {"message": "Profile updated"}
 
@@ -181,7 +188,7 @@ async def change_password(
             detail="Current password is incorrect",
         )
     user.password_hash = hash_password(request.new_password)
-    user.updated_at = datetime.utcnow()
+    user.updated_at = datetime.now(timezone.utc)
     await db.commit()
     await revoke_all_refresh_tokens(db, user.id)
     return {"message": "Password changed. Please login again."}

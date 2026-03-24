@@ -7,6 +7,14 @@ class RegisterRequest(BaseModel):
     full_name: str
 
 
+class CreateUserRequest(BaseModel):
+    """Admin-only: create a user with a specific role."""
+    email: str
+    password: str
+    full_name: str
+    role: str = "investor"  # 'investor' or 'admin'
+
+
 class LoginRequest(BaseModel):
     email: str
     password: str
