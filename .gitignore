@@ -1,0 +1,31 @@
+__pycache__/
+*.py[cod]
+*.egg-info/
+dist/
+build/
+.eggs/
+
+# Env
+.env
+.venv/
+venv/
+env/
+
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+
+# Data & models
+uploads/*
+!uploads/.gitkeep
+model_checkpoints/*
+!model_checkpoints/.gitkeep
+
+# Alembic
+db/migrations/versions/*.pyc
+
+# OS
+.DS_Store
+Thumbs.db
