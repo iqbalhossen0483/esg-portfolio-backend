@@ -4,6 +4,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from core.auth.dependencies import require_admin
 from core.auth.security import hash_password
+from core.response import success_response, error_response
 from db.crud import (
     activate_model,
     create_user,
@@ -55,12 +56,15 @@ async def create_user_by_admin(
         },
     )
 
-    return {
-        "message": f"{request.role.capitalize()} account created",
-        "user_id": str(user.id),
-        "email": user.email,
-        "role": user.role,
-    }
+    return success_response(
+        data={
+            "user_id": str(user.id),
+            "email": user.email,
+            "role": user.role,
+        },
+        message=f"{request.role.capitalize()} account created",
+        status_code=201,
+    )
 
 
 @router.get("/users")
@@ -77,19 +81,22 @@ async def list_users(
     result = await db.execute(query)
     users = result.scalars().all()
 
-    return [
-        {
-            "id": str(u.id),
-            "email": u.email,
-            "full_name": u.full_name,
-            "role": u.role,
-            "is_active": u.is_active,
-            "is_verified": u.is_verified,
-            "last_login_at": str(u.last_login_at) if u.last_login_at else None,
-            "created_at": str(u.created_at),
-        }
-        for u in users
-    ]
+    return success_response(
+        data=[
+            {
+                "id": str(u.id),
+                "email": u.email,
+                "full_name": u.full_name,
+                "role": u.role,
+                "is_active": u.is_active,
+                "is_verified": u.is_verified,
+                "last_login_at": str(u.last_login_at) if u.last_login_at else None,
+                "created_at": str(u.created_at),
+            }
+            for u in users
+        ],
+        message="Users retrieved successfully",
+    )
 
 
 @router.put("/users/{user_id}/role")
@@ -117,7 +124,10 @@ async def change_user_role(
         update(User).where(User.id == target_id).values(role=role)
     )
     await db.commit()
-    return {"message": f"User role updated to {role}", "user_id": user_id}
+    return success_response(
+        data={"user_id": user_id},
+        message=f"User role updated to {role}",
+    )
 
 
 @router.put("/users/{user_id}/deactivate")
@@ -138,7 +148,10 @@ async def deactivate_user(
         update(User).where(User.id == target_id).values(is_active=False)
     )
     await db.commit()
-    return {"message": "User deactivated", "user_id": user_id}
+    return success_response(
+        data={"user_id": user_id},
+        message="User deactivated",
+    )
 
 
 @router.put("/users/{user_id}/activate")
@@ -152,7 +165,10 @@ async def activate_user(
         update(User).where(User.id == int(user_id)).values(is_active=True)
     )
     await db.commit()
-    return {"message": "User activated", "user_id": user_id}
+    return success_response(
+        data={"user_id": user_id},
+        message="User activated",
+    )
 
 
 # ═══════════════════════════════════════
@@ -169,11 +185,13 @@ async def trigger_training(
     """Trigger DRL model training via Celery."""
     from tasks.training_task import train_drl_model
     task = train_drl_model.delay(esg_lambda, episodes)
-    return {
-        "status": "training_started",
-        "task_id": task.id,
-        "message": f"Training started with {episodes} episodes, ESG λ={esg_lambda}",
-    }
+    return success_response(
+        data={
+            "status": "training_started",
+            "task_id": task.id,
+        },
+        message=f"Training started with {episodes} episodes, ESG λ={esg_lambda}",
+    )
 
 
 @router.get("/models")
@@ -183,22 +201,25 @@ async def get_models(
 ):
     """List all trained DRL models with performance metrics."""
     models = await list_drl_models(db)
-    return [
-        {
-            "model_id": m.id,
-            "model_name": m.model_name,
-            "architecture": m.architecture,
-            "status": m.status,
-            "trained_at": str(m.trained_at) if m.trained_at else None,
-            "train_sharpe": float(m.train_sharpe) if m.train_sharpe else None,
-            "test_sharpe": float(m.test_sharpe) if m.test_sharpe else None,
-            "train_esg": float(m.train_esg) if m.train_esg else None,
-            "test_esg": float(m.test_esg) if m.test_esg else None,
-            "hyperparameters": m.hyperparameters,
-            "created_at": str(m.created_at),
-        }
-        for m in models
-    ]
+    return success_response(
+        data=[
+            {
+                "model_id": m.id,
+                "model_name": m.model_name,
+                "architecture": m.architecture,
+                "status": m.status,
+                "trained_at": str(m.trained_at) if m.trained_at else None,
+                "train_sharpe": float(m.train_sharpe) if m.train_sharpe else None,
+                "test_sharpe": float(m.test_sharpe) if m.test_sharpe else None,
+                "train_esg": float(m.train_esg) if m.train_esg else None,
+                "test_esg": float(m.test_esg) if m.test_esg else None,
+                "hyperparameters": m.hyperparameters,
+                "created_at": str(m.created_at),
+            }
+            for m in models
+        ],
+        message="Models retrieved successfully",
+    )
 
 
 @router.put("/models/{model_id}/activate")
@@ -209,10 +230,16 @@ async def activate_drl_model(
 ):
     """Set a trained model as the active model for inference."""
     await activate_model(db, int(model_id))
-    return {"status": "activated", "model_id": model_id}
+    return success_response(
+        data={"model_id": model_id},
+        message="Model activated successfully",
+    )
 
 
 @router.get("/pipeline/status")
 async def get_pipeline_status(user: User = Depends(require_admin)):
     """Check current pipeline/training job status."""
-    return {"status": "idle", "message": "No active jobs"}
+    return success_response(
+        data={"status": "idle"},
+        message="No active jobs",
+    )

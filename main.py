@@ -1,24 +1,29 @@
+import os
+import traceback
 from contextlib import asynccontextmanager
 
 import socketio
-from fastapi import FastAPI
+from fastapi import FastAPI, Request, status
+from fastapi.exceptions import RequestValidationError
 from fastapi.middleware.cors import CORSMiddleware
+from starlette.exceptions import HTTPException as StarletteHTTPException
 
 from api.router import api_router
 from config import settings
+from core.response import error_response
+
+IS_DEV = os.getenv("ENV", "development") == "development"
 
 sio = socketio.AsyncServer(async_mode="asgi", cors_allowed_origins="*")
 
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
-    # Startup: register Socket.IO handlers
     from core.adk.chat_socket import register_chat_handlers
     from core.adk.training_socket import register_training_handlers
     register_chat_handlers(sio)
     register_training_handlers(sio)
     yield
-    # Shutdown: cleanup
 
 
 app = FastAPI(
@@ -36,12 +41,60 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
+
+# ═══════════════════════════════════════
+# Global Error Handlers
+# ═══════════════════════════════════════
+
+
+@app.exception_handler(RequestValidationError)
+async def validation_exception_handler(request: Request, exc: RequestValidationError):
+    details = [
+        {
+            "field": " → ".join(str(loc) for loc in err["loc"]),
+            "message": err["msg"],
+            "type": err["type"],
+        }
+        for err in exc.errors()
+    ]
+    return error_response(
+        message="Validation Error",
+        details=details,
+        status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+    )
+
+
+@app.exception_handler(StarletteHTTPException)
+async def http_exception_handler(request: Request, exc: StarletteHTTPException):
+    return error_response(
+        message=exc.detail if isinstance(exc.detail, str) else str(exc.detail),
+        details=None,
+        status_code=exc.status_code,
+    )
+
+
+@app.exception_handler(Exception)
+async def global_exception_handler(request: Request, exc: Exception):
+    tb = traceback.format_exc()
+    print(f"[ERROR] {request.method} {request.url.path}\n{tb}")
+
+    return error_response(
+        message=str(exc) if IS_DEV else "An unexpected error occurred",
+        details=tb if IS_DEV else None,
+        status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+    )
+
+
+# ═══════════════════════════════════════
+# Routes
+# ═══════════════════════════════════════
+
 app.include_router(api_router)
 
 
 @app.get("/health")
 async def health_check():
-    return {"status": "ok", "service": "esg-portfolio-backend"}
+    return {"success": True, "message": "Service is running", "data": {"service": "esg-portfolio-backend"}}
 
 
 # Mount Socket.IO on the FastAPI ASGI app

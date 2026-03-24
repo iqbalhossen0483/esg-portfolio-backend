@@ -1,10 +1,11 @@
 import shutil
 from pathlib import Path
 
-from fastapi import APIRouter, BackgroundTasks, Depends, File, UploadFile
+from fastapi import APIRouter, BackgroundTasks, Depends, File, HTTPException, UploadFile
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from core.auth.dependencies import require_admin
+from core.response import success_response, error_response
 from db.crud import (
     create_training_job,
     get_training_job,
@@ -31,7 +32,10 @@ async def upload_and_ingest(
     """Upload a data file and trigger the multi-agent ingestion pipeline."""
     ext = Path(file.filename).suffix.lower()
     if ext not in ALLOWED_EXTENSIONS:
-        return {"error": f"Unsupported file type: {ext}. Allowed: {ALLOWED_EXTENSIONS}"}
+        raise HTTPException(
+            status_code=400,
+            detail=f"Unsupported file type: {ext}. Allowed: {ALLOWED_EXTENSIONS}",
+        )
 
     # Create tracking record first (auto-increment id)
     job = await create_training_job(db, {
@@ -51,13 +55,15 @@ async def upload_and_ingest(
         _run_ingestion_sync, job.id, str(file_path), file.filename
     )
 
-    return {
-        "job_id": job.id,
-        "file_name": file.filename,
-        "file_size": file_size,
-        "status": "processing",
-        "message": "File uploaded. Ingestion pipeline started.",
-    }
+    return success_response(
+        data={
+            "job_id": job.id,
+            "file_name": file.filename,
+            "file_size": file_size,
+            "status": "processing",
+        },
+        message="File uploaded. Ingestion pipeline started.",
+    )
 
 
 def _run_ingestion_sync(job_id: int, file_path: str, file_name: str):
@@ -76,19 +82,22 @@ async def get_ingestion_status(
     """Check status of an ingestion job."""
     job = await get_training_job(db, job_id)
     if not job:
-        return {"error": "Job not found"}
+        raise HTTPException(status_code=404, detail="Job not found")
 
-    return {
-        "job_id": job.id,
-        "file_name": job.file_name,
-        "status": job.status,
-        "total_chunks": job.total_chunks,
-        "chunks_processed": job.chunks_processed,
-        "records_stored": job.records_stored,
-        "quality_report": job.quality_report,
-        "started_at": str(job.started_at) if job.started_at else None,
-        "completed_at": str(job.completed_at) if job.completed_at else None,
-    }
+    return success_response(
+        data={
+            "job_id": job.id,
+            "file_name": job.file_name,
+            "status": job.status,
+            "total_chunks": job.total_chunks,
+            "chunks_processed": job.chunks_processed,
+            "records_stored": job.records_stored,
+            "quality_report": job.quality_report,
+            "started_at": str(job.started_at) if job.started_at else None,
+            "completed_at": str(job.completed_at) if job.completed_at else None,
+        },
+        message="Job status retrieved successfully",
+    )
 
 
 @router.get("/history")
@@ -99,19 +108,22 @@ async def get_ingestion_history(
 ):
     """List past ingestion jobs."""
     jobs = await list_training_jobs(db, limit=limit)
-    return [
-        {
-            "job_id": j.id,
-            "file_name": j.file_name,
-            "status": j.status,
-            "total_chunks": j.total_chunks,
-            "chunks_processed": j.chunks_processed,
-            "records_stored": j.records_stored,
-            "started_at": str(j.started_at) if j.started_at else None,
-            "completed_at": str(j.completed_at) if j.completed_at else None,
-        }
-        for j in jobs
-    ]
+    return success_response(
+        data=[
+            {
+                "job_id": j.id,
+                "file_name": j.file_name,
+                "status": j.status,
+                "total_chunks": j.total_chunks,
+                "chunks_processed": j.chunks_processed,
+                "records_stored": j.records_stored,
+                "started_at": str(j.started_at) if j.started_at else None,
+                "completed_at": str(j.completed_at) if j.completed_at else None,
+            }
+            for j in jobs
+        ],
+        message="Ingestion history retrieved successfully",
+    )
 
 
 @router.post("/recompute")
@@ -119,4 +131,7 @@ async def trigger_recompute(user: User = Depends(require_admin)):
     """Trigger metric recomputation without new data upload."""
     from tasks.pipeline_task import recompute_metrics
     recompute_metrics.delay()
-    return {"status": "triggered", "message": "Metric recomputation started."}
+    return success_response(
+        data={"status": "triggered"},
+        message="Metric recomputation started.",
+    )

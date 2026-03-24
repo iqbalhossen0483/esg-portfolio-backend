@@ -2,10 +2,11 @@
 
 from datetime import datetime, timezone
 
-from fastapi import APIRouter, Depends
+from fastapi import APIRouter, Depends, HTTPException
 from google.genai import types
 
 from core.auth.dependencies import get_current_user
+from core.response import success_response, error_response
 from db.models import User
 from schemas.chat import ChatRequest
 
@@ -51,7 +52,10 @@ async def send_message(request: ChatRequest, user: User = Depends(get_current_us
                 if part.text:
                     response_text = part.text
 
-    return {"response": response_text, "session_id": session_id}
+    return success_response(
+        data={"response": response_text, "session_id": session_id},
+        message="Message sent successfully",
+    )
 
 
 @router.get("/sessions")
@@ -76,7 +80,10 @@ async def list_sessions(user: User = Depends(get_current_user)):
         })
 
     result.sort(key=lambda x: x.get("last_updated") or "", reverse=True)
-    return result
+    return success_response(
+        data=result,
+        message="Sessions retrieved successfully",
+    )
 
 
 @router.get("/sessions/{session_id}")
@@ -91,7 +98,7 @@ async def get_session_messages(session_id: str, user: User = Depends(get_current
         session_id=session_id,
     )
     if not session:
-        return {"error": "Session not found"}
+        raise HTTPException(status_code=404, detail="Session not found")
 
     messages = []
     for event in session.events:
@@ -109,12 +116,15 @@ async def get_session_messages(session_id: str, user: User = Depends(get_current
                 })
 
     state = session.state if hasattr(session, "state") and session.state else {}
-    return {
-        "session_id": session_id,
-        "title": state.get("session_title", "Untitled Chat"),
-        "created_at": state.get("created_at"),
-        "messages": messages,
-    }
+    return success_response(
+        data={
+            "session_id": session_id,
+            "title": state.get("session_title", "Untitled Chat"),
+            "created_at": state.get("created_at"),
+            "messages": messages,
+        },
+        message="Session messages retrieved successfully",
+    )
 
 
 @router.delete("/sessions/{session_id}")
@@ -128,4 +138,7 @@ async def delete_session(session_id: str, user: User = Depends(get_current_user)
         user_id=user_id,
         session_id=session_id,
     )
-    return {"status": "deleted", "session_id": session_id}
+    return success_response(
+        data={"session_id": session_id},
+        message="Session deleted successfully",
+    )

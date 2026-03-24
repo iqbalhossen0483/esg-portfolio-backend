@@ -12,6 +12,7 @@ from core.auth.security import (
     hash_password,
     verify_password,
 )
+from core.response import success_response, error_response
 from db.crud import (
     create_user,
     get_refresh_token,
@@ -38,91 +39,68 @@ router = APIRouter(prefix="/auth", tags=["auth"])
 async def register(request: RegisterRequest, db: AsyncSession = Depends(get_db)):
     existing = await get_user_by_email(db, request.email)
     if existing:
-        raise HTTPException(
-            status_code=status.HTTP_409_CONFLICT,
-            detail="Email already registered",
-        )
+        raise HTTPException(status_code=status.HTTP_409_CONFLICT, detail="Email already registered")
 
-    user = await create_user(
-        db,
-        {
-            "email": request.email,
-            "password_hash": hash_password(request.password),
-            "full_name": request.full_name,
-            "role": "investor",
-        },
-    )
+    user = await create_user(db, {
+        "email": request.email,
+        "password_hash": hash_password(request.password),
+        "full_name": request.full_name,
+        "role": "investor",
+    })
 
-    # Generate tokens so user is logged in immediately after registration
-    token_data = {
-        "user_id": str(user.id),
-        "email": user.email,
-        "role": user.role,
-    }
+    token_data = {"user_id": str(user.id), "email": user.email, "role": user.role}
     access_token = create_access_token(token_data)
     refresh_token = create_refresh_token(token_data)
 
-    expires_at = datetime.now(timezone.utc) + timedelta(
-        days=settings.JWT_REFRESH_TOKEN_EXPIRE_DAYS
-    )
+    expires_at = datetime.now(timezone.utc) + timedelta(days=settings.JWT_REFRESH_TOKEN_EXPIRE_DAYS)
     await save_refresh_token(db, user.id, refresh_token, expires_at)
 
-    return {
-        "message": "Account created successfully",
-        "access_token": access_token,
-        "refresh_token": refresh_token,
-        "token_type": "bearer",
-        "user": {
-            "id": user.id,
-            "email": user.email,
-            "full_name": user.full_name,
-            "role": user.role,
+    return success_response(
+        message="Account created successfully",
+        data={
+            "access_token": access_token,
+            "refresh_token": refresh_token,
+            "token_type": "bearer",
+            "user": {
+                "id": user.id, "email": user.email,
+                "full_name": user.full_name, "role": user.role,
+            },
         },
-    }
+        status_code=201,
+    )
 
 
 @router.post("/login")
 async def login(request: LoginRequest, db: AsyncSession = Depends(get_db)):
     user = await get_user_by_email(db, request.email)
     if not user or not verify_password(request.password, user.password_hash):
-        raise HTTPException(
-            status_code=status.HTTP_401_UNAUTHORIZED,
-            detail="Invalid email or password",
-        )
+        raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Invalid email or password")
 
     if not user.is_active:
-        raise HTTPException(
-            status_code=status.HTTP_403_FORBIDDEN,
-            detail="Account is deactivated",
-        )
+        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Account is deactivated")
 
-    token_data = {
-        "user_id": str(user.id),
-        "email": user.email,
-        "role": user.role,
-    }
+    token_data = {"user_id": str(user.id), "email": user.email, "role": user.role}
     access_token = create_access_token(token_data)
     refresh_token = create_refresh_token(token_data)
 
-    expires_at = datetime.now(timezone.utc) + timedelta(
-        days=settings.JWT_REFRESH_TOKEN_EXPIRE_DAYS
-    )
+    expires_at = datetime.now(timezone.utc) + timedelta(days=settings.JWT_REFRESH_TOKEN_EXPIRE_DAYS)
     await save_refresh_token(db, user.id, refresh_token, expires_at)
 
     user.last_login_at = datetime.now(timezone.utc)
     await db.commit()
 
-    return {
-        "access_token": access_token,
-        "refresh_token": refresh_token,
-        "token_type": "bearer",
-        "user": {
-            "id": str(user.id),
-            "email": user.email,
-            "full_name": user.full_name,
-            "role": user.role,
+    return success_response(
+        message="Login successful",
+        data={
+            "access_token": access_token,
+            "refresh_token": refresh_token,
+            "token_type": "bearer",
+            "user": {
+                "id": user.id, "email": user.email,
+                "full_name": user.full_name, "role": user.role,
+            },
         },
-    }
+    )
 
 
 @router.post("/refresh")
@@ -130,53 +108,37 @@ async def refresh(request: RefreshRequest, db: AsyncSession = Depends(get_db)):
     try:
         payload = decode_token(request.refresh_token)
         if payload.get("type") != "refresh":
-            raise HTTPException(
-                status_code=status.HTTP_401_UNAUTHORIZED,
-                detail="Invalid token type",
-            )
+            raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Invalid token type")
     except Exception:
-        raise HTTPException(
-            status_code=status.HTTP_401_UNAUTHORIZED,
-            detail="Refresh token expired or invalid",
-        )
+        raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Refresh token expired or invalid")
 
     stored = await get_refresh_token(db, request.refresh_token)
     if not stored or stored.is_revoked:
-        raise HTTPException(
-            status_code=status.HTTP_401_UNAUTHORIZED,
-            detail="Refresh token revoked",
-        )
+        raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Refresh token revoked")
 
-    token_data = {
-        "user_id": payload["user_id"],
-        "email": payload["email"],
-        "role": payload["role"],
-    }
+    token_data = {"user_id": payload["user_id"], "email": payload["email"], "role": payload["role"]}
     new_access_token = create_access_token(token_data)
 
-    return {"access_token": new_access_token, "token_type": "bearer"}
+    return success_response(
+        message="Token refreshed",
+        data={"access_token": new_access_token, "token_type": "bearer"},
+    )
 
 
 @router.post("/logout")
-async def logout(
-    user: User = Depends(get_current_user),
-    db: AsyncSession = Depends(get_db),
-):
+async def logout(user: User = Depends(get_current_user), db: AsyncSession = Depends(get_db)):
     await revoke_all_refresh_tokens(db, user.id)
-    return {"message": "Logged out successfully"}
+    return success_response(message="Logged out successfully")
 
 
 @router.get("/me")
 async def get_me(user: User = Depends(get_current_user)):
-    return {
-        "id": str(user.id),
-        "email": user.email,
-        "full_name": user.full_name,
-        "role": user.role,
-        "is_verified": user.is_verified,
-        "avatar_url": user.avatar_url,
+    return success_response(data={
+        "id": user.id, "email": user.email,
+        "full_name": user.full_name, "role": user.role,
+        "is_verified": user.is_verified, "avatar_url": user.avatar_url,
         "created_at": str(user.created_at),
-    }
+    })
 
 
 @router.put("/me")
@@ -191,7 +153,7 @@ async def update_me(
         user.avatar_url = request.avatar_url
     user.updated_at = datetime.now(timezone.utc)
     await db.commit()
-    return {"message": "Profile updated"}
+    return success_response(message="Profile updated")
 
 
 @router.put("/change-password")
@@ -201,33 +163,19 @@ async def change_password(
     db: AsyncSession = Depends(get_db),
 ):
     if not verify_password(request.old_password, user.password_hash):
-        raise HTTPException(
-            status_code=status.HTTP_400_BAD_REQUEST,
-            detail="Current password is incorrect",
-        )
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Current password is incorrect")
     user.password_hash = hash_password(request.new_password)
     user.updated_at = datetime.now(timezone.utc)
     await db.commit()
     await revoke_all_refresh_tokens(db, user.id)
-    return {"message": "Password changed. Please login again."}
+    return success_response(message="Password changed. Please login again.")
 
 
 @router.post("/forgot-password")
-async def forgot_password(
-    request: ForgotPasswordRequest,
-    db: AsyncSession = Depends(get_db),
-):
-    # In production, send reset email. For now, just acknowledge.
-    user = await get_user_by_email(db, request.email)
-    # Always return success to prevent email enumeration
-    return {"message": "If that email exists, a password reset link has been sent."}
+async def forgot_password(request: ForgotPasswordRequest, db: AsyncSession = Depends(get_db)):
+    return success_response(message="If that email exists, a password reset link has been sent.")
 
 
 @router.post("/reset-password")
-async def reset_password(
-    request: ResetPasswordRequest,
-    db: AsyncSession = Depends(get_db),
-):
-    # TODO: Implement token-based password reset
-    # For now, placeholder
-    return {"message": "Password reset not yet implemented. Use /change-password instead."}
+async def reset_password(request: ResetPasswordRequest, db: AsyncSession = Depends(get_db)):
+    return success_response(message="Password reset not yet implemented. Use /change-password instead.")
