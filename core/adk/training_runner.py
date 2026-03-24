@@ -2,7 +2,6 @@
 Parses file → chunks → processes each chunk via ADK agent pipeline.
 """
 
-import uuid
 from datetime import datetime, timezone
 
 from google.adk.runners import Runner
@@ -39,7 +38,7 @@ async def run_training_pipeline(
     Returns:
         dict with job results summary.
     """
-    job_id = str(uuid.uuid4())
+    job_id = "0"  # Will be set by caller from DB auto-increment
 
     # Step 1: Parse file into raw pages (pure Python, no LLM)
     raw_pages = parse_file(file_path)

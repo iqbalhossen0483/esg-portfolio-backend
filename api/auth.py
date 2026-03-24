@@ -36,31 +36,49 @@ router = APIRouter(prefix="/auth", tags=["auth"])
 
 @router.post("/register", status_code=status.HTTP_201_CREATED)
 async def register(request: RegisterRequest, db: AsyncSession = Depends(get_db)):
-    try:
-        existing = await get_user_by_email(db, request.email)
-        if existing:
-            raise HTTPException(
-                status_code=status.HTTP_409_CONFLICT,
-                detail="Email already registered",
-            )
-
-        user = await create_user(
-            db,
-            {
-                "email": request.email,
-                "password_hash": hash_password(request.password),
-                "full_name": request.full_name,
-                "role": "investor",
-            },
-        )
-
-        return {"message": "Account created successfully", "user_id": str(user.id)}
-    except Exception as e:
-        print(e)
+    existing = await get_user_by_email(db, request.email)
+    if existing:
         raise HTTPException(
-            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail=str(e),
+            status_code=status.HTTP_409_CONFLICT,
+            detail="Email already registered",
         )
+
+    user = await create_user(
+        db,
+        {
+            "email": request.email,
+            "password_hash": hash_password(request.password),
+            "full_name": request.full_name,
+            "role": "investor",
+        },
+    )
+
+    # Generate tokens so user is logged in immediately after registration
+    token_data = {
+        "user_id": str(user.id),
+        "email": user.email,
+        "role": user.role,
+    }
+    access_token = create_access_token(token_data)
+    refresh_token = create_refresh_token(token_data)
+
+    expires_at = datetime.now(timezone.utc) + timedelta(
+        days=settings.JWT_REFRESH_TOKEN_EXPIRE_DAYS
+    )
+    await save_refresh_token(db, user.id, refresh_token, expires_at)
+
+    return {
+        "message": "Account created successfully",
+        "access_token": access_token,
+        "refresh_token": refresh_token,
+        "token_type": "bearer",
+        "user": {
+            "id": user.id,
+            "email": user.email,
+            "full_name": user.full_name,
+            "role": user.role,
+        },
+    }
 
 
 @router.post("/login")

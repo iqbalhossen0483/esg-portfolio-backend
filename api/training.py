@@ -1,8 +1,8 @@
 import shutil
-import uuid
 from pathlib import Path
 
 from fastapi import APIRouter, BackgroundTasks, Depends, File, UploadFile
+from sqlalchemy.ext.asyncio import AsyncSession
 
 from core.auth.dependencies import require_admin
 from db.crud import (
@@ -12,7 +12,6 @@ from db.crud import (
 )
 from db.database import get_db
 from db.models import User
-from sqlalchemy.ext.asyncio import AsyncSession
 
 router = APIRouter(prefix="/training", tags=["training"])
 
@@ -34,30 +33,26 @@ async def upload_and_ingest(
     if ext not in ALLOWED_EXTENSIONS:
         return {"error": f"Unsupported file type: {ext}. Allowed: {ALLOWED_EXTENSIONS}"}
 
-    job_id = str(uuid.uuid4())
-    file_path = UPLOAD_DIR / f"{job_id}{ext}"
+    # Create tracking record first (auto-increment id)
+    job = await create_training_job(db, {
+        "file_name": file.filename,
+        "file_size": 0,
+        "status": "processing",
+    })
 
+    file_path = UPLOAD_DIR / f"{job.id}{ext}"
     with open(file_path, "wb") as f:
         shutil.copyfileobj(file.file, f)
 
     file_size = file_path.stat().st_size
 
-    # Create tracking record
-    await create_training_job(db, {
-        "job_id": uuid.UUID(job_id),
-        "file_name": file.filename,
-        "file_size": file_size,
-        "status": "processing",
-    })
-
     # Trigger ingestion pipeline in background
-    from tasks.ingestion_task import run_ingestion
     background_tasks.add_task(
-        _run_ingestion_sync, job_id, str(file_path), file.filename
+        _run_ingestion_sync, job.id, str(file_path), file.filename
     )
 
     return {
-        "job_id": job_id,
+        "job_id": job.id,
         "file_name": file.filename,
         "file_size": file_size,
         "status": "processing",
@@ -65,27 +60,26 @@ async def upload_and_ingest(
     }
 
 
-def _run_ingestion_sync(job_id: str, file_path: str, file_name: str):
-    """Wrapper to run ingestion — can be replaced with Celery .delay() in production."""
+def _run_ingestion_sync(job_id: int, file_path: str, file_name: str):
+    """Wrapper to run ingestion."""
     import asyncio
     from core.adk.training_runner import run_training_pipeline
-
     asyncio.run(run_training_pipeline(file_path=file_path, file_name=file_name))
 
 
 @router.get("/status/{job_id}")
 async def get_ingestion_status(
-    job_id: str,
+    job_id: int,
     user: User = Depends(require_admin),
     db: AsyncSession = Depends(get_db),
 ):
     """Check status of an ingestion job."""
-    job = await get_training_job(db, uuid.UUID(job_id))
+    job = await get_training_job(db, job_id)
     if not job:
         return {"error": "Job not found"}
 
     return {
-        "job_id": str(job.job_id),
+        "job_id": job.id,
         "file_name": job.file_name,
         "status": job.status,
         "total_chunks": job.total_chunks,
@@ -107,7 +101,7 @@ async def get_ingestion_history(
     jobs = await list_training_jobs(db, limit=limit)
     return [
         {
-            "job_id": str(j.job_id),
+            "job_id": j.id,
             "file_name": j.file_name,
             "status": j.status,
             "total_chunks": j.total_chunks,
@@ -122,7 +116,7 @@ async def get_ingestion_history(
 
 @router.post("/recompute")
 async def trigger_recompute(user: User = Depends(require_admin)):
-    """Trigger metric recomputation (Sharpe, Sortino, etc.) without new data upload."""
+    """Trigger metric recomputation without new data upload."""
     from tasks.pipeline_task import recompute_metrics
     recompute_metrics.delay()
     return {"status": "triggered", "message": "Metric recomputation started."}

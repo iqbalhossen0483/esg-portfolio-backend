@@ -1,5 +1,3 @@
-import uuid
-
 from fastapi import APIRouter, Depends, HTTPException, status
 from sqlalchemy import select, update
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -108,7 +106,7 @@ async def change_user_role(
             detail="Role must be 'investor' or 'admin'",
         )
 
-    target_id = uuid.UUID(user_id)
+    target_id = int(user_id)
     if target_id == admin.id:
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
@@ -129,7 +127,7 @@ async def deactivate_user(
     db: AsyncSession = Depends(get_db),
 ):
     """Deactivate a user account. Admin only."""
-    target_id = uuid.UUID(user_id)
+    target_id = int(user_id)
     if target_id == admin.id:
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
@@ -151,7 +149,7 @@ async def activate_user(
 ):
     """Reactivate a deactivated user. Admin only."""
     await db.execute(
-        update(User).where(User.id == uuid.UUID(user_id)).values(is_active=True)
+        update(User).where(User.id == int(user_id)).values(is_active=True)
     )
     await db.commit()
     return {"message": "User activated", "user_id": user_id}
@@ -187,7 +185,7 @@ async def get_models(
     models = await list_drl_models(db)
     return [
         {
-            "model_id": str(m.model_id),
+            "model_id": m.id,
             "model_name": m.model_name,
             "architecture": m.architecture,
             "status": m.status,
@@ -210,7 +208,7 @@ async def activate_drl_model(
     db: AsyncSession = Depends(get_db),
 ):
     """Set a trained model as the active model for inference."""
-    await activate_model(db, uuid.UUID(model_id))
+    await activate_model(db, int(model_id))
     return {"status": "activated", "model_id": model_id}
 
 

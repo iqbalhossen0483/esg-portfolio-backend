@@ -1,8 +1,8 @@
 """initial
 
-Revision ID: 31c348e680ee
+Revision ID: b714349a8468
 Revises: 
-Create Date: 2026-03-24 16:33:10.111772
+Create Date: 2026-03-24 18:04:27.879336
 """
 from typing import Sequence, Union
 
@@ -12,7 +12,7 @@ from sqlalchemy.dialects import postgresql
 import pgvector.sqlalchemy
 
 # revision identifiers, used by Alembic.
-revision: str = '31c348e680ee'
+revision: str = 'b714349a8468'
 down_revision: Union[str, None] = None
 branch_labels: Union[str, Sequence[str], None] = None
 depends_on: Union[str, Sequence[str], None] = None
@@ -29,13 +29,13 @@ def upgrade() -> None:
     sa.Column('restricted_business', sa.Boolean(), nullable=False),
     sa.Column('severe_controversy', sa.Boolean(), nullable=False),
     sa.Column('profile_embedding', pgvector.sqlalchemy.vector.VECTOR(dim=768), nullable=True),
-    sa.Column('created_at', sa.DateTime(), nullable=False),
-    sa.Column('updated_at', sa.DateTime(), nullable=False),
+    sa.Column('created_at', sa.DateTime(), server_default='now()', nullable=False),
+    sa.Column('updated_at', sa.DateTime(), server_default='now()', nullable=False),
     sa.PrimaryKeyConstraint('symbol')
     )
     op.create_index('idx_company_profile_embedding', 'companies', ['profile_embedding'], unique=False, postgresql_using='ivfflat', postgresql_with={'lists': 20}, postgresql_ops={'profile_embedding': 'vector_cosine_ops'})
     op.create_table('drl_models',
-    sa.Column('model_id', sa.UUID(), nullable=False),
+    sa.Column('id', sa.Integer(), autoincrement=True, nullable=False),
     sa.Column('model_name', sa.String(length=100), nullable=True),
     sa.Column('model_path', sa.String(length=500), nullable=True),
     sa.Column('architecture', sa.String(length=50), nullable=True),
@@ -46,8 +46,8 @@ def upgrade() -> None:
     sa.Column('test_esg', sa.Numeric(precision=6, scale=2), nullable=True),
     sa.Column('status', sa.String(length=20), nullable=False),
     sa.Column('hyperparameters', postgresql.JSONB(astext_type=sa.Text()), nullable=True),
-    sa.Column('created_at', sa.DateTime(), nullable=False),
-    sa.PrimaryKeyConstraint('model_id')
+    sa.Column('created_at', sa.DateTime(), server_default='now()', nullable=False),
+    sa.PrimaryKeyConstraint('id')
     )
     op.create_table('knowledge_base',
     sa.Column('id', sa.Integer(), autoincrement=True, nullable=False),
@@ -55,12 +55,12 @@ def upgrade() -> None:
     sa.Column('content', sa.Text(), nullable=False),
     sa.Column('topic', sa.String(length=50), nullable=True),
     sa.Column('embedding', pgvector.sqlalchemy.vector.VECTOR(dim=768), nullable=True),
-    sa.Column('created_at', sa.DateTime(), nullable=False),
+    sa.Column('created_at', sa.DateTime(), server_default='now()', nullable=False),
     sa.PrimaryKeyConstraint('id')
     )
     op.create_index('idx_knowledge_base_embedding', 'knowledge_base', ['embedding'], unique=False, postgresql_using='ivfflat', postgresql_with={'lists': 10}, postgresql_ops={'embedding': 'vector_cosine_ops'})
     op.create_table('portfolio_metrics',
-    sa.Column('portfolio_id', sa.UUID(), nullable=False),
+    sa.Column('id', sa.Integer(), autoincrement=True, nullable=False),
     sa.Column('risk_profile', sa.String(length=20), nullable=True),
     sa.Column('esg_priority', sa.String(length=20), nullable=True),
     sa.Column('sharpe_ratio', sa.Numeric(precision=8, scale=4), nullable=True),
@@ -72,8 +72,8 @@ def upgrade() -> None:
     sa.Column('num_holdings', sa.Integer(), nullable=True),
     sa.Column('sector_count', sa.Integer(), nullable=True),
     sa.Column('as_of_date', sa.Date(), nullable=True),
-    sa.Column('created_at', sa.DateTime(), nullable=False),
-    sa.PrimaryKeyConstraint('portfolio_id')
+    sa.Column('created_at', sa.DateTime(), server_default='now()', nullable=False),
+    sa.PrimaryKeyConstraint('id')
     )
     op.create_table('sector_rankings',
     sa.Column('sector', sa.String(length=100), nullable=False),
@@ -87,7 +87,7 @@ def upgrade() -> None:
     sa.PrimaryKeyConstraint('sector', 'as_of_date')
     )
     op.create_table('training_jobs',
-    sa.Column('job_id', sa.UUID(), nullable=False),
+    sa.Column('id', sa.Integer(), autoincrement=True, nullable=False),
     sa.Column('file_name', sa.String(length=500), nullable=False),
     sa.Column('file_size', sa.BigInteger(), nullable=True),
     sa.Column('status', sa.String(length=20), nullable=False),
@@ -95,12 +95,12 @@ def upgrade() -> None:
     sa.Column('chunks_processed', sa.Integer(), nullable=False),
     sa.Column('records_stored', postgresql.JSONB(astext_type=sa.Text()), nullable=True),
     sa.Column('quality_report', postgresql.JSONB(astext_type=sa.Text()), nullable=True),
-    sa.Column('started_at', sa.DateTime(), nullable=False),
+    sa.Column('started_at', sa.DateTime(), server_default='now()', nullable=False),
     sa.Column('completed_at', sa.DateTime(), nullable=True),
-    sa.PrimaryKeyConstraint('job_id')
+    sa.PrimaryKeyConstraint('id')
     )
     op.create_table('users',
-    sa.Column('id', sa.UUID(), nullable=False),
+    sa.Column('id', sa.Integer(), autoincrement=True, nullable=False),
     sa.Column('email', sa.String(length=255), nullable=False),
     sa.Column('password_hash', sa.String(length=255), nullable=False),
     sa.Column('full_name', sa.String(length=200), nullable=False),
@@ -109,8 +109,8 @@ def upgrade() -> None:
     sa.Column('is_verified', sa.Boolean(), nullable=False),
     sa.Column('avatar_url', sa.String(length=500), nullable=True),
     sa.Column('last_login_at', sa.DateTime(), nullable=True),
-    sa.Column('created_at', sa.DateTime(), nullable=False),
-    sa.Column('updated_at', sa.DateTime(), nullable=False),
+    sa.Column('created_at', sa.DateTime(), server_default='now()', nullable=False),
+    sa.Column('updated_at', sa.DateTime(), server_default='now()', nullable=False),
     sa.PrimaryKeyConstraint('id'),
     sa.UniqueConstraint('email')
     )
@@ -148,16 +148,17 @@ def upgrade() -> None:
     sa.PrimaryKeyConstraint('symbol', 'date', 'provider')
     )
     op.create_table('portfolio_allocations',
-    sa.Column('portfolio_id', sa.UUID(), nullable=False),
+    sa.Column('id', sa.Integer(), autoincrement=True, nullable=False),
+    sa.Column('portfolio_id', sa.Integer(), nullable=False),
     sa.Column('risk_profile', sa.String(length=20), nullable=False),
     sa.Column('esg_priority', sa.String(length=20), nullable=False),
     sa.Column('symbol', sa.String(length=10), nullable=False),
     sa.Column('weight', sa.Numeric(precision=6, scale=4), nullable=True),
     sa.Column('as_of_date', sa.Date(), nullable=False),
-    sa.Column('model_id', sa.UUID(), nullable=True),
-    sa.ForeignKeyConstraint(['model_id'], ['drl_models.model_id'], ),
+    sa.Column('model_id', sa.Integer(), nullable=True),
+    sa.ForeignKeyConstraint(['model_id'], ['drl_models.id'], ),
     sa.ForeignKeyConstraint(['symbol'], ['companies.symbol'], ),
-    sa.PrimaryKeyConstraint('portfolio_id', 'symbol')
+    sa.PrimaryKeyConstraint('id')
     )
     op.create_table('prices_daily',
     sa.Column('symbol', sa.String(length=10), nullable=False),
@@ -171,12 +172,12 @@ def upgrade() -> None:
     sa.PrimaryKeyConstraint('symbol', 'date')
     )
     op.create_table('refresh_tokens',
-    sa.Column('id', sa.UUID(), nullable=False),
-    sa.Column('user_id', sa.UUID(), nullable=False),
+    sa.Column('id', sa.Integer(), autoincrement=True, nullable=False),
+    sa.Column('user_id', sa.Integer(), nullable=False),
     sa.Column('token', sa.String(length=500), nullable=False),
     sa.Column('expires_at', sa.DateTime(), nullable=False),
     sa.Column('is_revoked', sa.Boolean(), nullable=False),
-    sa.Column('created_at', sa.DateTime(), nullable=False),
+    sa.Column('created_at', sa.DateTime(), server_default='now()', nullable=False),
     sa.ForeignKeyConstraint(['user_id'], ['users.id'], ondelete='CASCADE'),
     sa.PrimaryKeyConstraint('id'),
     sa.UniqueConstraint('token')

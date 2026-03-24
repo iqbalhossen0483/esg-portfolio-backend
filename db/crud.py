@@ -1,7 +1,6 @@
-import uuid
 from datetime import datetime
 
-from sqlalchemy import select, update, delete
+from sqlalchemy import select, update
 from sqlalchemy.dialects.postgresql import insert as pg_insert
 from sqlalchemy.ext.asyncio import AsyncSession
 
@@ -34,7 +33,7 @@ async def create_user(db: AsyncSession, data: dict) -> User:
     return user
 
 
-async def get_user_by_id(db: AsyncSession, user_id: uuid.UUID) -> User | None:
+async def get_user_by_id(db: AsyncSession, user_id: int) -> User | None:
     result = await db.execute(select(User).where(User.id == user_id))
     return result.scalar_one_or_none()
 
@@ -50,7 +49,7 @@ async def get_user_by_email(db: AsyncSession, email: str) -> User | None:
 
 
 async def save_refresh_token(
-    db: AsyncSession, user_id: uuid.UUID, token: str, expires_at: datetime
+    db: AsyncSession, user_id: int, token: str, expires_at: datetime
 ) -> RefreshToken:
     rt = RefreshToken(user_id=user_id, token=token, expires_at=expires_at)
     db.add(rt)
@@ -65,7 +64,7 @@ async def get_refresh_token(db: AsyncSession, token: str) -> RefreshToken | None
     return result.scalar_one_or_none()
 
 
-async def revoke_all_refresh_tokens(db: AsyncSession, user_id: uuid.UUID):
+async def revoke_all_refresh_tokens(db: AsyncSession, user_id: int):
     await db.execute(
         update(RefreshToken)
         .where(RefreshToken.user_id == user_id, RefreshToken.is_revoked == False)
@@ -264,14 +263,12 @@ async def list_drl_models(db: AsyncSession) -> list[DRLModel]:
     return list(result.scalars().all())
 
 
-async def activate_model(db: AsyncSession, model_id: uuid.UUID):
-    # Retire all currently active models
+async def activate_model(db: AsyncSession, model_id: int):
     await db.execute(
         update(DRLModel).where(DRLModel.status == "active").values(status="retired")
     )
-    # Activate the specified model
     await db.execute(
-        update(DRLModel).where(DRLModel.model_id == model_id).values(status="active")
+        update(DRLModel).where(DRLModel.id == model_id).values(status="active")
     )
     await db.commit()
 
@@ -289,16 +286,16 @@ async def create_training_job(db: AsyncSession, data: dict) -> TrainingJob:
     return job
 
 
-async def update_training_job(db: AsyncSession, job_id: uuid.UUID, data: dict):
+async def update_training_job(db: AsyncSession, job_id: int, data: dict):
     await db.execute(
-        update(TrainingJob).where(TrainingJob.job_id == job_id).values(**data)
+        update(TrainingJob).where(TrainingJob.id == job_id).values(**data)
     )
     await db.commit()
 
 
-async def get_training_job(db: AsyncSession, job_id: uuid.UUID) -> TrainingJob | None:
+async def get_training_job(db: AsyncSession, job_id: int) -> TrainingJob | None:
     result = await db.execute(
-        select(TrainingJob).where(TrainingJob.job_id == job_id)
+        select(TrainingJob).where(TrainingJob.id == job_id)
     )
     return result.scalar_one_or_none()
 

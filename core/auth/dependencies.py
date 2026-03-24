@@ -8,8 +8,6 @@ from db.crud import get_user_by_id
 from db.models import User
 from .security import decode_token
 
-import uuid
-
 security = HTTPBearer()
 
 
@@ -31,8 +29,8 @@ async def get_current_user(
                 status_code=status.HTTP_401_UNAUTHORIZED,
                 detail="Invalid token payload",
             )
-        user_id = uuid.UUID(user_id_str)
-    except JWTError:
+        user_id = int(user_id_str)
+    except (JWTError, ValueError):
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
             detail="Token expired or invalid",

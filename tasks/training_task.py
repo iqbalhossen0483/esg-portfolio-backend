@@ -117,7 +117,7 @@ async def _train_model(esg_lambda: float = 0.5, episodes: int = 500):
         })
 
         return {
-            "model_id": str(model_record.model_id),
+            "model_id": model_record.id,
             "model_path": train_result["model_path"],
             "train_metrics": train_result,
             "eval_metrics": eval_result,
