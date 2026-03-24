@@ -12,7 +12,9 @@ sio = socketio.AsyncServer(async_mode="asgi", cors_allowed_origins="*")
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
-    # Startup: initialize services
+    # Startup: register Socket.IO handlers
+    from core.adk.training_socket import register_training_handlers
+    register_training_handlers(sio)
     yield
     # Shutdown: cleanup
 
