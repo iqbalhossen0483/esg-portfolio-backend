@@ -52,7 +52,7 @@ async def register(request: RegisterRequest, db: AsyncSession = Depends(get_db))
     access_token = create_access_token(token_data)
     refresh_token = create_refresh_token(token_data)
 
-    expires_at = datetime.now(timezone.utc) + timedelta(days=settings.JWT_REFRESH_TOKEN_EXPIRE_DAYS)
+    expires_at = datetime.now() + timedelta(days=settings.JWT_REFRESH_TOKEN_EXPIRE_DAYS)
     await save_refresh_token(db, user.id, refresh_token, expires_at)
 
     return success_response(
@@ -83,10 +83,10 @@ async def login(request: LoginRequest, db: AsyncSession = Depends(get_db)):
     access_token = create_access_token(token_data)
     refresh_token = create_refresh_token(token_data)
 
-    expires_at = datetime.now(timezone.utc) + timedelta(days=settings.JWT_REFRESH_TOKEN_EXPIRE_DAYS)
+    expires_at = datetime.now() + timedelta(days=settings.JWT_REFRESH_TOKEN_EXPIRE_DAYS)
     await save_refresh_token(db, user.id, refresh_token, expires_at)
 
-    user.last_login_at = datetime.now(timezone.utc)
+    user.last_login_at = datetime.now()
     await db.commit()
 
     return success_response(

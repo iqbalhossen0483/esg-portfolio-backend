@@ -16,7 +16,9 @@ APP_NAME = "esg_advisor"
 
 
 def _get_services():
-    from core.adk.chat_runner import chat_runner, chat_session_service
+    from core.adk.chat_runner import get_chat_runner, get_chat_session_service
+    chat_runner = get_chat_runner()
+    chat_session_service = get_chat_session_service()
     return chat_runner, chat_session_service
 
 

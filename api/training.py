@@ -50,9 +50,11 @@ async def upload_and_ingest(
 
     file_size = file_path.stat().st_size
 
+    print(f"Uploading {file.filename} ({file_size} bytes)")
+
     # Trigger ingestion pipeline in background
     background_tasks.add_task(
-        _run_ingestion_sync, job.id, str(file_path), file.filename
+        _run_ingestion_async, job.id, str(file_path), file.filename
     )
 
     return success_response(
@@ -66,11 +68,16 @@ async def upload_and_ingest(
     )
 
 
-def _run_ingestion_sync(job_id: int, file_path: str, file_name: str):
-    """Wrapper to run ingestion."""
-    import asyncio
+async def _run_ingestion_async(job_id: int, file_path: str, file_name: str):
+    print(f"Running ingestion pipeline for job {job_id}")
     from core.adk.training_runner import run_training_pipeline
-    asyncio.run(run_training_pipeline(file_path=file_path, file_name=file_name))
+    try:
+        await run_training_pipeline(file_path=file_path, file_name=file_name)
+        print(f"✅ Pipeline completed for job {job_id}")
+    except Exception as e:
+        import traceback
+        print(f"❌ Pipeline failed for job {job_id}: {e}")
+        traceback.print_exc()
 
 
 @router.get("/status/{job_id}")

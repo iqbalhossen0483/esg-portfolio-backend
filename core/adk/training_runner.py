@@ -10,15 +10,28 @@ from google.genai import types
 
 from core.parsers.base_parser import parse_file
 from core.parsers.chunker import chunk_pages, count_tokens
-from .training_agents import chunk_pipeline
 
 # Training sessions are ephemeral — InMemorySessionService is correct here
-training_session_service = InMemorySessionService()
-training_runner = Runner(
-    agent=chunk_pipeline,
-    app_name="esg_training",
-    session_service=training_session_service,
-)
+session_service: InMemorySessionService | None = None
+runner: Runner | None = None
+
+
+def init_training_runner():
+    """Called once from lifespan, inside the running event loop."""
+    global session_service, runner
+    try:
+        from .training_agents import chunk_pipeline  # this is where it may be failing
+
+        session_service = InMemorySessionService()
+        runner = Runner(
+            agent=chunk_pipeline,
+            app_name="esg_training",
+            session_service=session_service,
+        )
+        print("✅ Training runner initialized successfully")
+    except Exception as e:
+        print(f"❌ Training runner initialization FAILED: {e}")
+        raise  # don't swallow it — crash loudly on startup
 
 
 async def run_training_pipeline(
@@ -38,13 +51,26 @@ async def run_training_pipeline(
     Returns:
         dict with job results summary.
     """
+    print("Running training pipeline...")
+    if runner is None or session_service is None:
+        raise RuntimeError("Training runner not initialized. Call init_training_runner() in lifespan.")
+    
+    print(f"Running training pipeline for {file_name} ({file_path})")
+
     job_id = "0"  # Will be set by caller from DB auto-increment
 
     # Step 1: Parse file into raw pages (pure Python, no LLM)
     raw_pages = parse_file(file_path)
+    print(f"📄 Parsed {len(raw_pages)} raw pages")
+    print(raw_pages[0])
 
     # Step 2: Apply tokenization + chunking rules
     chunks = chunk_pages(raw_pages)
+    print(f"🔪 Created {len(chunks)} chunks")
+
+    if not chunks:
+        print("⚠️ NO CHUNKS CREATED — file may be empty or parser failed")
+        return results
 
     # Emit: job started
     if sio and sid:
@@ -74,13 +100,13 @@ async def run_training_pipeline(
         token_count = count_tokens(chunk)
 
         try:
-            session = await training_session_service.create_session(
+            session = await session_service.create_session(
                 app_name="esg_training",
                 user_id="admin",
             )
 
             response = ""
-            async for event in training_runner.run_async(
+            async for event in runner.run_async(
                 user_id="admin",
                 session_id=session.id,
                 new_message=types.Content(
@@ -96,6 +122,7 @@ async def run_training_pipeline(
                         if part.text:
                             response = part.text
 
+            print(f"🤖 Agent response: {response[:300] if response else 'NO RESPONSE'}")
             results["chunks_processed"] += 1
 
             # Emit: chunk progress
@@ -110,6 +137,7 @@ async def run_training_pipeline(
 
         except Exception as e:
             error_msg = f"Chunk {i + 1}: {str(e)}"
+            # print(f"error: {error_msg}")
             results["errors"].append(error_msg)
 
             if sio and sid:

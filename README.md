@@ -78,6 +78,7 @@ docker compose up -d
 ### 5. Run database migrations
 
 ```bash
+alembic init alembic
 alembic revision --autogenerate -m "initial"
 alembic upgrade head
 ```

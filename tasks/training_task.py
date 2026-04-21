@@ -127,4 +127,5 @@ async def _train_model(esg_lambda: float = 0.5, episodes: int = 500):
 @celery_app.task(name="tasks.train_drl_model")
 def train_drl_model(esg_lambda: float = 0.5, episodes: int = 500):
     """Celery task: train a DRL model."""
+    print(f"Training DRL model with ESG λ={esg_lambda}, episodes={episodes}")
     return asyncio.run(_train_model(esg_lambda, episodes))

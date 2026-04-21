@@ -1,6 +1,8 @@
 import os
 import traceback
 from contextlib import asynccontextmanager
+from dotenv import load_dotenv
+load_dotenv()
 
 import socketio
 from fastapi import FastAPI, Request, status
@@ -11,16 +13,31 @@ from starlette.exceptions import HTTPException as StarletteHTTPException
 from api.router import api_router
 from config import settings
 from core.response import error_response
+import google.genai._api_client as _patch
+
+_orig = _patch.BaseApiClient.aclose
+async def _safe(self):
+    try:
+        await _orig(self)
+    except AttributeError:
+        pass
+_patch.BaseApiClient.aclose = _safe
 
 IS_DEV = os.getenv("ENV", "development") == "development"
 
 sio = socketio.AsyncServer(async_mode="asgi", cors_allowed_origins="*")
 
 
+
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     from core.adk.chat_socket import register_chat_handlers
     from core.adk.training_socket import register_training_handlers
+    from core.adk.training_runner import init_training_runner
+    from core.adk.chat_runner import init_chat_runner
+
+    init_chat_runner() 
+    init_training_runner()
     register_chat_handlers(sio)
     register_training_handlers(sio)
     yield

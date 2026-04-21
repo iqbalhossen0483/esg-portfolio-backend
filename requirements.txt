@@ -13,7 +13,7 @@ google-adk>=1.27.0
 sqlalchemy[asyncio]>=2.0.0
 asyncpg>=0.30.0
 alembic>=1.14.0
-pgvector>=0.3.0
+pgvector>=0.4.2
 
 # DRL + ML
 torch>=2.5.0

@@ -21,7 +21,7 @@ from core.tools.training_tools import (
 # ── Step 1: Classify this chunk ──
 classifier_agent = LlmAgent(
     name="DataClassifier",
-    model="gemini-2.5-flash",
+    model="gemini-2.0-flash",
     description="Classifies a single data chunk into its data type.",
     instruction="""You receive a single chunk of data (500-600 tokens).
     Classify it as ONE of:
@@ -44,7 +44,7 @@ classifier_agent = LlmAgent(
 # ── Step 2: Extract structured data from this chunk ──
 extractor_agent = LlmAgent(
     name="DataExtractor",
-    model="gemini-2.5-flash",
+    model="gemini-2.0-flash",
     description="Extracts structured records from a classified chunk.",
     instruction="""Read the classified chunk from state key 'classified_chunk'.
     Based on the classification type, extract structured records:
@@ -102,7 +102,7 @@ validation_agent = LlmAgent(
 # ── Step 4: Store to correct target ──
 storage_agent = LlmAgent(
     name="DataStorer",
-    model="gemini-2.5-flash",
+    model="gemini-2.0-flash",
     description="Stores validated data to PostgreSQL or pgvector based on data type.",
     instruction="""Read validated data from state key 'validated_data'.
 
