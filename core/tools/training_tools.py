@@ -118,7 +118,51 @@ def clean_numeric_values(value: str) -> str:
 
 
 def _coerce_records(records_json):
-    return json.loads(records_json) if isinstance(records_json, str) else records_json
+    """Parse LLM-provided records into a flat list.
+
+    Tolerates three malformed shapes we see in practice:
+      - markdown fences around the JSON (```json ... ```)
+      - several JSON arrays concatenated, e.g. `[...][...]`
+      - JSONL, one object per line
+    """
+    if not isinstance(records_json, str):
+        return records_json
+
+    s = records_json.strip()
+    if s.startswith("```"):
+        nl = s.find("\n")
+        if nl >= 0:
+            s = s[nl + 1:]
+        if s.rstrip().endswith("```"):
+            s = s.rstrip()[:-3]
+        s = s.strip()
+
+    if not s:
+        return []
+
+    try:
+        parsed = json.loads(s)
+        return parsed if isinstance(parsed, list) else [parsed]
+    except json.JSONDecodeError as e:
+        if "Extra data" not in str(e):
+            raise
+
+    decoder = json.JSONDecoder()
+    records: list = []
+    idx, n = 0, len(s)
+    while idx < n:
+        while idx < n and s[idx].isspace():
+            idx += 1
+        if idx >= n:
+            break
+        obj, end = decoder.raw_decode(s, idx)
+        if isinstance(obj, list):
+            records.extend(obj)
+        else:
+            records.append(obj)
+        idx = end
+    log.warning("coerced %d records from multi-value JSON payload", len(records))
+    return records
 
 
 async def store_prices(records_json: str) -> dict:
