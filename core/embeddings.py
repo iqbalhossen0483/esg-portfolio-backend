@@ -59,16 +59,18 @@ async def generate_embedding(text: str) -> list[float]:
         import google.genai as genai
         from config import settings
 
-        client = genai.Client(api_key=settings.GEMINI_API_KEY)
+        client = genai.Client(api_key=settings.GOOGLE_API_KEY)
         result = await asyncio.to_thread(
             client.models.embed_content,
-            model="text-embedding-004",
-            content=text,
+            model="gemini-embedding-2",
+            contents=text,
         )
-        return result.embedding
-    except Exception:
+        return result.embeddings[0].values
+    except Exception as exc:
+        import logging
+        logging.exception("Failed to generate embedding", exc_info=exc)
         # Return zero vector as fallback
-        return [0.0] * 768
+        return [0.0] * 3072
 
 
 async def update_all_company_embeddings():

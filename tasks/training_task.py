@@ -1,13 +1,12 @@
 """Celery task for DRL model training."""
 
-import asyncio
 from datetime import datetime, timezone
 
 import numpy as np
 import pandas as pd
 from sqlalchemy import select
 
-from .celery_app import celery_app
+from .celery_app import celery_app, run_async
 from db.database import async_session
 from db.models import Company, PriceDaily, ESGScore
 from db.crud import create_drl_model
@@ -128,4 +127,4 @@ async def _train_model(esg_lambda: float = 0.5, episodes: int = 500):
 def train_drl_model(esg_lambda: float = 0.5, episodes: int = 500):
     """Celery task: train a DRL model."""
     print(f"Training DRL model with ESG λ={esg_lambda}, episodes={episodes}")
-    return asyncio.run(_train_model(esg_lambda, episodes))
+    return run_async(_train_model(esg_lambda, episodes))

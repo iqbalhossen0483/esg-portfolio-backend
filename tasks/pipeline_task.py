@@ -1,16 +1,13 @@
-import asyncio
 from datetime import date
-
 import pandas as pd
 from sqlalchemy import select, func
-
 from core.logging import get_logger
 from core.metrics import compute_all_metrics
 from db.crud import upsert_computed_metric, upsert_sector_ranking
 from db.database import async_session
 from db.models import Company, ESGScore, PriceDaily
 
-from .celery_app import celery_app
+from .celery_app import celery_app, run_async
 
 log = get_logger(__name__)
 
@@ -123,4 +120,4 @@ async def _recompute_metrics():
 @celery_app.task(name="tasks.recompute_metrics")
 def recompute_metrics():
     """Celery task: recompute all financial + ESG metrics."""
-    return asyncio.run(_recompute_metrics())
+    return run_async(_recompute_metrics())

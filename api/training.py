@@ -1,11 +1,9 @@
 import hashlib
 from pathlib import Path
 from uuid import uuid4
-
 import aiofiles
 from fastapi import APIRouter, Depends, File, HTTPException, UploadFile, status
 from sqlalchemy.ext.asyncio import AsyncSession
-
 from config import settings
 from core.auth.dependencies import require_admin
 from core.logging import get_logger

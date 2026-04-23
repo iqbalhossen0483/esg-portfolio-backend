@@ -1,15 +1,15 @@
-import asyncio
 from datetime import datetime, timezone
 
 from core.logging import get_logger
 from db.crud import update_training_job
 from db.database import async_session
 
-from .celery_app import celery_app
+from .celery_app import celery_app, run_async
 
 log = get_logger(__name__)
 
 
+# update the TrainingJob row to failed
 async def _mark_failed(job_id: int, message: str) -> None:
     async with async_session() as db:
         await update_training_job(db, job_id, {
@@ -23,22 +23,18 @@ async def _mark_failed(job_id: int, message: str) -> None:
 def run_ingestion(self, job_id: int, file_path: str, file_name: str) -> dict:
     """Celery task: run the ADK training pipeline for an uploaded file.
     On uncaught exception the TrainingJob row is marked failed."""
-    from core.adk.training_runner import init_training_runner, run_training_pipeline
+    from core.adk.training_runner import run_training_pipeline
 
-    async def _run():
-        init_training_runner()
-        return await run_training_pipeline(
+    try:
+        return run_async(run_training_pipeline(
             job_id=job_id,
             file_path=file_path,
             file_name=file_name,
-        )
-
-    try:
-        return asyncio.run(_run())
+        ))
     except Exception as exc:
         log.exception("ingestion task failed job_id=%s", job_id)
         try:
-            asyncio.run(_mark_failed(job_id, str(exc)))
+            run_async(_mark_failed(job_id, str(exc)))
         except Exception:
             log.exception("failed to mark job failed job_id=%s", job_id)
         raise

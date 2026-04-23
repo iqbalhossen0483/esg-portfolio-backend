@@ -233,7 +233,7 @@ class KnowledgeBase(Base):
     title: Mapped[str | None] = mapped_column(String(200), nullable=True)
     content: Mapped[str] = mapped_column(Text, nullable=False)
     topic: Mapped[str | None] = mapped_column(String(50), nullable=True)
-    embedding = mapped_column(Vector(768), nullable=True)
+    embedding = mapped_column(Vector(3072), nullable=True)
     created_at: Mapped[datetime] = mapped_column(DateTime, server_default="now()")
 
 
@@ -244,12 +244,4 @@ Index(
     postgresql_using="ivfflat",
     postgresql_with={"lists": 20},
     postgresql_ops={"profile_embedding": "vector_cosine_ops"},
-)
-
-Index(
-    "idx_knowledge_base_embedding",
-    KnowledgeBase.embedding,
-    postgresql_using="ivfflat",
-    postgresql_with={"lists": 10},
-    postgresql_ops={"embedding": "vector_cosine_ops"},
 )
