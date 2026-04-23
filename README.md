@@ -37,7 +37,7 @@ cp .env.example .env
 
 Edit `.env` with your actual credentials:
 
-```
+```bash
 DB_HOST=localhost
 DB_PORT=5432
 DB_NAME=esg_portfolio
@@ -90,15 +90,15 @@ source venv/bin/activate
 uvicorn main:socket_app --host 0.0.0.0 --port 8000 --reload
 ```
 
-Server runs at: http://localhost:8000
+Server runs at: <http://localhost:8000>
 
 ## API Documentation
 
 Once the server is running:
 
-- **Swagger UI:** http://localhost:8000/docs
-- **ReDoc:** http://localhost:8000/redoc
-- **Health Check:** http://localhost:8000/health
+- **Swagger UI:** <http://localhost:8000/docs>
+- **ReDoc:** <http://localhost:8000/redoc>
+- **Health Check:** <http://localhost:8000/health>
 
 ## API Endpoints
 
@@ -174,7 +174,7 @@ Once the server is running:
 
 ## Project Structure
 
-```
+```bash
 esg-portfolio-backend/
 ├── main.py                     # FastAPI + Socket.IO entry point
 ├── config.py                   # Pydantic Settings (.env loading)
@@ -259,20 +259,3 @@ async def seed():
 asyncio.run(seed())
 "
 ```
-
-## Build Status
-
-- [x] Project scaffolding
-- [x] Database models (12 tables + pgvector)
-- [x] Alembic migrations setup
-- [x] CRUD operations
-- [x] Auth system (register, login, JWT, role-based access)
-- [ ] File parsers (xlsx, csv, pdf)
-- [ ] Chunking & tokenization (gpt-tokenizer)
-- [ ] Training pipeline (ADK multi-agent)
-- [ ] Financial metrics computation
-- [ ] DRL engine (MAPPO / RA-DRL)
-- [ ] Chat agents (ADK multi-agent pipeline)
-- [ ] Socket.IO real-time events
-- [ ] Data API endpoints
-- [ ] Admin API endpoints

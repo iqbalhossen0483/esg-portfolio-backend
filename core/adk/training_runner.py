@@ -62,7 +62,6 @@ async def run_training_pipeline(
     # Step 1: Parse file into raw pages (pure Python, no LLM)
     raw_pages = parse_file(file_path)
     print(f"📄 Parsed {len(raw_pages)} raw pages")
-    print(raw_pages[0])
 
     # Step 2: Apply tokenization + chunking rules
     chunks = chunk_pages(raw_pages)
@@ -137,7 +136,7 @@ async def run_training_pipeline(
 
         except Exception as e:
             error_msg = f"Chunk {i + 1}: {str(e)}"
-            # print(f"error: {error_msg}")
+            print(f"error: {error_msg}")
             results["errors"].append(error_msg)
 
             if sio and sid:

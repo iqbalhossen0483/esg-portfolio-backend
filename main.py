@@ -1,4 +1,3 @@
-import os
 import traceback
 from contextlib import asynccontextmanager
 from dotenv import load_dotenv
@@ -12,18 +11,13 @@ from starlette.exceptions import HTTPException as StarletteHTTPException
 
 from api.router import api_router
 from config import settings
+from core.logging import configure_logging, get_logger
 from core.response import error_response
-import google.genai._api_client as _patch
 
-_orig = _patch.BaseApiClient.aclose
-async def _safe(self):
-    try:
-        await _orig(self)
-    except AttributeError:
-        pass
-_patch.BaseApiClient.aclose = _safe
+configure_logging()
+log = get_logger(__name__)
 
-IS_DEV = os.getenv("ENV", "development") == "development"
+IS_DEV = settings.IS_DEV
 
 sio = socketio.AsyncServer(async_mode="asgi", cors_allowed_origins="*")
 
@@ -92,12 +86,11 @@ async def http_exception_handler(request: Request, exc: StarletteHTTPException):
 
 @app.exception_handler(Exception)
 async def global_exception_handler(request: Request, exc: Exception):
-    tb = traceback.format_exc()
-    print(f"[ERROR] {request.method} {request.url.path}\n{tb}")
+    log.exception("unhandled exception method=%s path=%s", request.method, request.url.path)
 
     return error_response(
         message=str(exc) if IS_DEV else "An unexpected error occurred",
-        details=tb if IS_DEV else None,
+        details=traceback.format_exc() if IS_DEV else None,
         status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
     )
 

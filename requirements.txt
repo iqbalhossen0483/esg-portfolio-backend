@@ -37,3 +37,12 @@ bcrypt>=5.0.0
 
 # Utilities (pydantic comes with FastAPI, python-dotenv comes with pydantic-settings)
 pydantic-settings>=2.7.0
+
+# EmailStr validator
+email-validator>=2.2.0
+
+# Async file I/O for upload streaming
+aiofiles>=24.1.0
+
+# Magic-byte detection for upload MIME validation
+python-magic>=0.4.27

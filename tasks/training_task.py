@@ -99,7 +99,7 @@ async def _train_model(esg_lambda: float = 0.5, episodes: int = 500):
 
         # Step 8: Save to database
         model_record = await create_drl_model(db, {
-            "model_name": f"mappo_{datetime.now().strftime('%Y%m%d_%H%M%S')}",
+            "model_name": f"mappo_{datetime.now(timezone.utc).strftime('%Y%m%d_%H%M%S')}",
             "model_path": train_result["model_path"],
             "architecture": "mappo_ra_drl",
             "trained_at": datetime.now(timezone.utc),
