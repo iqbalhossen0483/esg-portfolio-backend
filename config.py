@@ -24,7 +24,7 @@ class Settings(BaseSettings):
     REDIS_DB: int = 0
 
     # Gemini
-    GEMINI_API_KEY: str = ""
+    GOOGLE_API_KEY: str = ""
 
     # CORS
     CORS_ORIGINS: str = "http://localhost:3000"

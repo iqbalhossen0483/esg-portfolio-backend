@@ -1,7 +1,8 @@
-import traceback
-from contextlib import asynccontextmanager
 from dotenv import load_dotenv
 load_dotenv()
+from config import settings
+import traceback
+from contextlib import asynccontextmanager
 
 import socketio
 from fastapi import FastAPI, Request, status
@@ -10,7 +11,6 @@ from fastapi.middleware.cors import CORSMiddleware
 from starlette.exceptions import HTTPException as StarletteHTTPException
 
 from api.router import api_router
-from config import settings
 from core.logging import configure_logging, get_logger
 from core.response import error_response
 

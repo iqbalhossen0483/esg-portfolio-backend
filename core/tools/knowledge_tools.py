@@ -1,65 +1,66 @@
-"""ADK FunctionTools for investment knowledge base search."""
+"""ADK FunctionTools for investment knowledge base search. Async + pgvector."""
 
-import asyncio
+from sqlalchemy import select
 
-from db.database import async_session
+from core.embeddings import generate_embedding
+from core.logging import get_logger
 from db.crud import search_knowledge
+from db.database import async_session
+from db.models import KnowledgeBase
+
+log = get_logger(__name__)
 
 
-def search_knowledge_base(query: str) -> dict:
-    """Searches the investment knowledge base using pgvector semantic search.
+async def _keyword_fallback(db, query: str, limit: int) -> list[dict]:
+    rows = (await db.execute(
+        select(KnowledgeBase).limit(200)
+    )).scalars().all()
 
-    Use this tool when the user asks about investment concepts, definitions,
-    methodology, or how the system works. Covers: Sharpe ratio, Sortino ratio,
-    ESG scoring, portfolio diversification, risk metrics, DRL optimization.
+    qlower = query.lower()
+    scored = []
+    for entry in rows:
+        score = 0
+        content = (entry.content or "").lower()
+        title = (entry.title or "").lower()
+        for word in qlower.split():
+            if word in content:
+                score += 1
+            if word in title:
+                score += 2
+        if score:
+            scored.append((score, entry))
+    scored.sort(key=lambda x: -x[0])
+    return [
+        {"title": e.title, "content": e.content, "topic": e.topic}
+        for _, e in scored[:limit]
+    ]
+
+
+async def search_knowledge_base(query: str) -> dict:
+    """Searches the investment knowledge base via pgvector semantic similarity.
+
+    Falls back to keyword scoring when embeddings are unavailable.
 
     Args:
-        query: Natural language search query (e.g., 'what is Sharpe ratio',
-               'how does ESG screening work', 'explain diversification').
+        query: Natural language search query.
 
     Returns:
-        dict with 'results' list containing title, content, and topic
-        of the most relevant knowledge base entries.
+        dict with 'results' list (title, content, topic) of the most relevant entries.
     """
-    async def _search():
-        async with async_session() as db:
-            # For now, use text-based search until embeddings are generated
-            # TODO: Replace with embedding-based search
-            from sqlalchemy import select
-            from db.models import KnowledgeBase
+    limit = 5
+    embedding = await generate_embedding(query)
 
-            # Simple keyword search fallback
-            query_lower = query.lower()
-            result = await db.execute(
-                select(KnowledgeBase).limit(50)
-            )
-            entries = result.scalars().all()
-
-            # Score by keyword overlap
-            scored = []
-            for entry in entries:
-                score = 0
-                content_lower = (entry.content or "").lower()
-                title_lower = (entry.title or "").lower()
-                for word in query_lower.split():
-                    if word in content_lower:
-                        score += 1
-                    if word in title_lower:
-                        score += 2
-                if score > 0:
-                    scored.append((score, entry))
-
-            scored.sort(key=lambda x: -x[0])
-            top = scored[:5]
-
-            return [
-                {
-                    "title": entry.title,
-                    "content": entry.content,
-                    "topic": entry.topic,
-                }
-                for _, entry in top
+    async with async_session() as db:
+        results: list[dict] = []
+        if embedding and any(v != 0.0 for v in embedding):
+            entries = await search_knowledge(db, embedding, limit=limit)
+            results = [
+                {"title": e.title, "content": e.content, "topic": e.topic}
+                for e in entries
+                if e.embedding is not None
             ]
+        if not results:
+            log.info("knowledge search using keyword fallback query=%r", query)
+            results = await _keyword_fallback(db, query, limit)
 
-    results = asyncio.run(_search())
     return {"query": query, "results": results, "count": len(results)}

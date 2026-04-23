@@ -171,11 +171,17 @@ async def change_password(
     return success_response(message="Password changed. Please login again.")
 
 
-@router.post("/forgot-password")
+@router.post("/forgot-password", status_code=status.HTTP_501_NOT_IMPLEMENTED)
 async def forgot_password(request: ForgotPasswordRequest, db: AsyncSession = Depends(get_db)):
-    return success_response(message="If that email exists, a password reset link has been sent.")
+    raise HTTPException(
+        status_code=status.HTTP_501_NOT_IMPLEMENTED,
+        detail="Password reset is not yet implemented. Use /auth/change-password while authenticated.",
+    )
 
 
-@router.post("/reset-password")
+@router.post("/reset-password", status_code=status.HTTP_501_NOT_IMPLEMENTED)
 async def reset_password(request: ResetPasswordRequest, db: AsyncSession = Depends(get_db)):
-    return success_response(message="Password reset not yet implemented. Use /change-password instead.")
+    raise HTTPException(
+        status_code=status.HTTP_501_NOT_IMPLEMENTED,
+        detail="Password reset is not yet implemented. Use /auth/change-password while authenticated.",
+    )

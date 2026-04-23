@@ -1,3 +1,5 @@
+from dotenv import load_dotenv
+load_dotenv()
 from celery import Celery
 
 from config import settings
@@ -6,6 +8,11 @@ celery_app = Celery(
     "esg_portfolio",
     broker=settings.REDIS_URL,
     backend=settings.REDIS_URL,
+    include=[
+        "tasks.ingestion_task",
+        "tasks.pipeline_task",
+        "tasks.training_task",
+    ]
 )
 
 celery_app.conf.update(
@@ -19,4 +26,3 @@ celery_app.conf.update(
     worker_prefetch_multiplier=1,
 )
 
-celery_app.autodiscover_tasks(["tasks"])

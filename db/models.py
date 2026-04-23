@@ -41,10 +41,9 @@ class User(Base):
     is_active: Mapped[bool] = mapped_column(Boolean, default=True)
     is_verified: Mapped[bool] = mapped_column(Boolean, default=False)
     avatar_url: Mapped[str | None] = mapped_column(String(500), nullable=True)
-    last_login_at: Mapped[datetime | None] = mapped_column(DateTime, nullable=True)
+    last_login_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
     created_at: Mapped[datetime] = mapped_column(DateTime, server_default="now()")
-    updated_at: Mapped[datetime] = mapped_column(DateTime, server_default="now()", onupdate=_utcnow)
-
+    updated_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default="now()", onupdate=_utcnow)
     refresh_tokens: Mapped[list["RefreshToken"]] = relationship(
         back_populates="user", cascade="all, delete-orphan"
     )
@@ -58,10 +57,9 @@ class RefreshToken(Base):
         Integer, ForeignKey("users.id", ondelete="CASCADE"), nullable=False
     )
     token: Mapped[str] = mapped_column(String(500), unique=True, nullable=False)
-    expires_at: Mapped[datetime] = mapped_column(DateTime, nullable=False)
+    expires_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False)
     is_revoked: Mapped[bool] = mapped_column(Boolean, default=False)
     created_at: Mapped[datetime] = mapped_column(DateTime, server_default="now()")
-
     user: Mapped["User"] = relationship(back_populates="refresh_tokens")
 
 
@@ -213,14 +211,14 @@ class TrainingJob(Base):
     uploaded_by: Mapped[int | None] = mapped_column(
         Integer, ForeignKey("users.id", ondelete="SET NULL"), nullable=True
     )
-    status: Mapped[str] = mapped_column(String(20), default="queued")
+    status: Mapped[str] = mapped_column(String(30), default="queued")
     total_chunks: Mapped[int | None] = mapped_column(Integer, nullable=True)
     chunks_processed: Mapped[int] = mapped_column(Integer, default=0)
     records_stored: Mapped[dict | None] = mapped_column(JSONB, nullable=True)
     quality_report: Mapped[dict | None] = mapped_column(JSONB, nullable=True)
     error: Mapped[str | None] = mapped_column(Text, nullable=True)
-    started_at: Mapped[datetime] = mapped_column(DateTime, server_default="now()")
-    completed_at: Mapped[datetime | None] = mapped_column(DateTime, nullable=True)
+    started_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default="now()")
+    completed_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
 
 
 # ═══════════════════════════════════════════════════════════════

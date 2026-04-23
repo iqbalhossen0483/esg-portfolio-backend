@@ -79,8 +79,8 @@ docker compose up -d
 
 ```bash
 alembic init alembic
-alembic revision --autogenerate -m "initial"
 alembic upgrade head
+alembic revision --autogenerate -m "initial"
 ```
 
 ### 6. Start the server
