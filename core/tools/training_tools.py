@@ -1,18 +1,22 @@
 """ADK FunctionTools for the training pipeline.
 Each function's docstring is read by the LLM to decide when/how to use it.
+All storage tools are async — they run inside the ADK event loop.
 """
 
-import asyncio
 import json
 from datetime import datetime
 
-from db.database import async_session
+from core.embeddings import generate_embedding
+from core.logging import get_logger
 from db.crud import (
-    bulk_upsert_prices,
+    bulk_upsert_companies,
     bulk_upsert_esg_scores,
-    upsert_company,
+    bulk_upsert_prices,
     create_knowledge_entry,
 )
+from db.database import async_session
+
+log = get_logger(__name__)
 
 
 def extract_tabular_data(raw_content: str, column_mapping: str) -> dict:
@@ -57,7 +61,6 @@ def extract_text_content(raw_content: str, title: str = "", topic: str = "") -> 
     Returns:
         dict with 'title', 'content', and 'topic'.
     """
-    # Strip page markers
     content = raw_content
     for prefix in ["[PDF Page", "[Sheet:", "[CSV,"]:
         if content.startswith(prefix):
@@ -114,7 +117,11 @@ def clean_numeric_values(value: str) -> str:
         return ""
 
 
-def store_prices(records_json: str) -> dict:
+def _coerce_records(records_json):
+    return json.loads(records_json) if isinstance(records_json, str) else records_json
+
+
+async def store_prices(records_json: str) -> dict:
     """Store price records to the prices_daily PostgreSQL table using upsert.
 
     Args:
@@ -124,8 +131,7 @@ def store_prices(records_json: str) -> dict:
     Returns:
         dict with 'records_stored' count and 'status'.
     """
-    records = json.loads(records_json) if isinstance(records_json, str) else records_json
-
+    records = _coerce_records(records_json)
     cleaned = []
     for r in records:
         try:
@@ -141,15 +147,16 @@ def store_prices(records_json: str) -> dict:
         except (ValueError, KeyError):
             continue
 
-    async def _store():
-        async with async_session() as db:
-            await bulk_upsert_prices(db, cleaned)
+    if not cleaned:
+        return {"records_stored": 0, "status": "empty"}
 
-    asyncio.run(_store())
+    async with async_session() as db:
+        await bulk_upsert_prices(db, cleaned)
+    log.info("stored prices count=%d", len(cleaned))
     return {"records_stored": len(cleaned), "status": "ok"}
 
 
-def store_esg_scores(records_json: str) -> dict:
+async def store_esg_scores(records_json: str) -> dict:
     """Store ESG score records to the esg_scores PostgreSQL table using upsert.
 
     Args:
@@ -159,32 +166,33 @@ def store_esg_scores(records_json: str) -> dict:
     Returns:
         dict with 'records_stored' count and 'status'.
     """
-    records = json.loads(records_json) if isinstance(records_json, str) else records_json
-
+    records = _coerce_records(records_json)
     cleaned = []
     for r in records:
         try:
+            composite_raw = r.get("composite", r.get("composite_score"))
             cleaned.append({
                 "symbol": str(r["symbol"]).strip(),
                 "date": r["date"],
                 "provider": str(r.get("provider", "unknown")).strip(),
-                "e_score": float(r["e_score"]) if r.get("e_score") else None,
-                "s_score": float(r["s_score"]) if r.get("s_score") else None,
-                "g_score": float(r["g_score"]) if r.get("g_score") else None,
-                "composite_score": float(r.get("composite", r.get("composite_score", 0))) if r.get("composite") or r.get("composite_score") else None,
+                "e_score": float(r["e_score"]) if r.get("e_score") is not None else None,
+                "s_score": float(r["s_score"]) if r.get("s_score") is not None else None,
+                "g_score": float(r["g_score"]) if r.get("g_score") is not None else None,
+                "composite_score": float(composite_raw) if composite_raw is not None else None,
             })
         except (ValueError, KeyError):
             continue
 
-    async def _store():
-        async with async_session() as db:
-            await bulk_upsert_esg_scores(db, cleaned)
+    if not cleaned:
+        return {"records_stored": 0, "status": "empty"}
 
-    asyncio.run(_store())
+    async with async_session() as db:
+        await bulk_upsert_esg_scores(db, cleaned)
+    log.info("stored esg_scores count=%d", len(cleaned))
     return {"records_stored": len(cleaned), "status": "ok"}
 
 
-def store_company_metadata(records_json: str) -> dict:
+async def store_company_metadata(records_json: str) -> dict:
     """Store company metadata to the companies PostgreSQL table using upsert.
 
     Args:
@@ -195,34 +203,32 @@ def store_company_metadata(records_json: str) -> dict:
     Returns:
         dict with 'records_stored' count and 'status'.
     """
-    records = json.loads(records_json) if isinstance(records_json, str) else records_json
+    records = _coerce_records(records_json)
+    cleaned = []
+    for r in records:
+        if not r.get("symbol") or not r.get("name"):
+            continue
+        cleaned.append({
+            "symbol": str(r["symbol"]).strip(),
+            "name": str(r["name"]).strip(),
+            "sector": r.get("sector"),
+            "sub_industry": r.get("sub_industry"),
+            "restricted_business": bool(r.get("restricted_business", False)),
+            "severe_controversy": bool(r.get("severe_controversy", False)),
+        })
 
-    async def _store():
-        async with async_session() as db:
-            count = 0
-            for r in records:
-                if not r.get("symbol") or not r.get("name"):
-                    continue
-                await upsert_company(db, {
-                    "symbol": str(r["symbol"]).strip(),
-                    "name": str(r["name"]).strip(),
-                    "sector": r.get("sector"),
-                    "sub_industry": r.get("sub_industry"),
-                    "restricted_business": bool(r.get("restricted_business", False)),
-                    "severe_controversy": bool(r.get("severe_controversy", False)),
-                })
-                count += 1
-            return count
+    if not cleaned:
+        return {"records_stored": 0, "status": "empty"}
 
-    count = asyncio.run(_store())
-    return {"records_stored": count, "status": "ok"}
+    async with async_session() as db:
+        await bulk_upsert_companies(db, cleaned)
+    log.info("stored companies count=%d", len(cleaned))
+    return {"records_stored": len(cleaned), "status": "ok"}
 
 
-def store_knowledge_embedding(title: str, content: str, topic: str) -> dict:
-    """Store research/narrative content to the knowledge_base table with embedding.
-
-    The content chunk (500-600 tokens) is stored as-is. Embedding generation
-    will be done in a separate step using text-embedding-004.
+async def store_knowledge_embedding(title: str, content: str, topic: str) -> dict:
+    """Store research/narrative content to the knowledge_base table with an
+    embedding generated from text-embedding-004.
 
     Args:
         title: Short title for this knowledge entry.
@@ -232,17 +238,19 @@ def store_knowledge_embedding(title: str, content: str, topic: str) -> dict:
     Returns:
         dict with 'status' and 'entry_id'.
     """
-    async def _store():
-        async with async_session() as db:
-            entry = await create_knowledge_entry(db, {
-                "title": title,
-                "content": content,
-                "topic": topic,
-                # embedding will be generated later
-            })
-            return entry.id
+    text_for_embedding = f"{title}: {content}" if title else content
+    embedding = await generate_embedding(text_for_embedding)
 
-    entry_id = asyncio.run(_store())
+    async with async_session() as db:
+        entry = await create_knowledge_entry(db, {
+            "title": title,
+            "content": content,
+            "topic": topic,
+            "embedding": embedding,
+        })
+        entry_id = entry.id
+
+    log.info("stored knowledge entry_id=%s topic=%s", entry_id, topic)
     return {"status": "ok", "entry_id": entry_id}
 
 

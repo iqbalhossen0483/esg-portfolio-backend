@@ -78,11 +78,27 @@ async def revoke_all_refresh_tokens(db: AsyncSession, user_id: int):
 # ═══════════════════════════════════════
 
 
+_COMPANY_UPDATABLE = ("name", "sector", "sub_industry", "market_cap",
+                      "restricted_business", "severe_controversy")
+
+
 async def upsert_company(db: AsyncSession, data: dict):
     stmt = pg_insert(Company).values(**data)
     stmt = stmt.on_conflict_do_update(
         index_elements=["symbol"],
         set_={k: v for k, v in data.items() if k != "symbol"},
+    )
+    await db.execute(stmt)
+    await db.commit()
+
+
+async def bulk_upsert_companies(db: AsyncSession, records: list[dict]):
+    if not records:
+        return
+    stmt = pg_insert(Company).values(records)
+    stmt = stmt.on_conflict_do_update(
+        index_elements=["symbol"],
+        set_={col: getattr(stmt.excluded, col) for col in _COMPANY_UPDATABLE},
     )
     await db.execute(stmt)
     await db.commit()
@@ -187,6 +203,20 @@ async def upsert_computed_metric(db: AsyncSession, data: dict):
     await db.commit()
 
 
+_METRIC_SORT_COLS = {
+    "composite_score": ComputedMetric.composite_score,
+    "sharpe_252d": ComputedMetric.sharpe_252d,
+    "sortino_252d": ComputedMetric.sortino_252d,
+    "calmar_ratio": ComputedMetric.calmar_ratio,
+    "annual_return": ComputedMetric.annual_return,
+    "annual_volatility": ComputedMetric.annual_volatility,
+    "avg_esg_composite": ComputedMetric.avg_esg_composite,
+    "max_drawdown": ComputedMetric.max_drawdown,
+    "momentum_20d": ComputedMetric.momentum_20d,
+    "momentum_60d": ComputedMetric.momentum_60d,
+}
+
+
 async def get_computed_metrics(
     db: AsyncSession,
     sector: str | None = None,
@@ -205,7 +235,7 @@ async def get_computed_metrics(
     if min_sharpe is not None:
         query = query.where(ComputedMetric.sharpe_252d >= min_sharpe)
 
-    sort_col = getattr(ComputedMetric, sort_by, ComputedMetric.composite_score)
+    sort_col = _METRIC_SORT_COLS.get(sort_by, ComputedMetric.composite_score)
     query = query.order_by(sort_col.desc()).limit(limit)
     result = await db.execute(query)
     return list(result.scalars().all())
@@ -226,10 +256,20 @@ async def upsert_sector_ranking(db: AsyncSession, data: dict):
     await db.commit()
 
 
+_SECTOR_SORT_COLS = {
+    "composite_score": SectorRanking.composite_score,
+    "avg_sharpe": SectorRanking.avg_sharpe,
+    "avg_esg": SectorRanking.avg_esg,
+    "avg_volatility": SectorRanking.avg_volatility,
+    "avg_return": SectorRanking.avg_return,
+    "company_count": SectorRanking.company_count,
+}
+
+
 async def get_sector_rankings(
     db: AsyncSession, sort_by: str = "composite_score", limit: int = 20
 ):
-    sort_col = getattr(SectorRanking, sort_by, SectorRanking.composite_score)
+    sort_col = _SECTOR_SORT_COLS.get(sort_by, SectorRanking.composite_score)
     result = await db.execute(
         select(SectorRanking).order_by(sort_col.desc()).limit(limit)
     )

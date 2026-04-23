@@ -209,11 +209,16 @@ class TrainingJob(Base):
     id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
     file_name: Mapped[str] = mapped_column(String(500), nullable=False)
     file_size: Mapped[int | None] = mapped_column(BigInteger, nullable=True)
-    status: Mapped[str] = mapped_column(String(20), default="processing")
+    file_sha256: Mapped[str | None] = mapped_column(String(64), nullable=True, index=True)
+    uploaded_by: Mapped[int | None] = mapped_column(
+        Integer, ForeignKey("users.id", ondelete="SET NULL"), nullable=True
+    )
+    status: Mapped[str] = mapped_column(String(20), default="queued")
     total_chunks: Mapped[int | None] = mapped_column(Integer, nullable=True)
     chunks_processed: Mapped[int] = mapped_column(Integer, default=0)
     records_stored: Mapped[dict | None] = mapped_column(JSONB, nullable=True)
     quality_report: Mapped[dict | None] = mapped_column(JSONB, nullable=True)
+    error: Mapped[str | None] = mapped_column(Text, nullable=True)
     started_at: Mapped[datetime] = mapped_column(DateTime, server_default="now()")
     completed_at: Mapped[datetime | None] = mapped_column(DateTime, nullable=True)
 
