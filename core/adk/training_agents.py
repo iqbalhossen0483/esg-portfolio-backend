@@ -47,22 +47,37 @@ extractor_agent = LlmAgent(
     model="gemini-2.5-pro",
     description="Extracts structured records from a classified chunk.",
     instruction="""Read the classified chunk from state key 'classified_chunk'.
-    Based on the classification type, extract structured records:
 
-    For "price_data": extract rows as [{symbol, date, open, high, low, close, volume}]
-    For "esg_scores": extract as [{symbol, date, provider, e_score, s_score, g_score, composite}]
-    For "company_meta": extract as [{symbol, name, sector, sub_industry, restricted_business, severe_controversy}]
-    For "research_text": extract as [{title, content, topic}]
+    You MUST use ONLY the provided tools. Never invent tool names.
 
-    Handle Bloomberg-style Excel where:
-    - Row 4 might contain ticker symbols spread across columns
-    - Row 6+ contains dates in column A and prices in subsequent columns
+    Tool usage rules:
+    - Use extract_tabular_data to extract structured rows from tables.
+    - Use extract_text_content for unstructured or paragraph data.
+    - Use normalize_dates to convert all dates to YYYY-MM-DD.
+    - Use clean_numeric_values to clean all numeric fields.
 
-    Use the column_mapping from classification to align fields correctly.
-    Normalize all dates to YYYY-MM-DD format using normalize_dates tool.
-    Clean numeric values using clean_numeric_values tool.
+    Extraction rules:
+    - For "price_data": [{symbol, date, open, high, low, close, volume}]
+    - For "esg_scores": [{symbol, date, provider, e_score, s_score, g_score, composite}]
+    - For "company_meta": [{symbol, name, sector, sub_industry, restricted_business, severe_controversy}]
+    - For "research_text": [{title, content, topic}]
 
-    Output JSON: {type, records: [...], record_count}""",
+    Bloomberg-style Excel:
+    - Row 4 → ticker symbols across columns
+    - Row 6+ → dates in column A, values across columns
+
+    You MUST:
+    1. Extract data using extract_tabular_data or extract_text_content
+    2. Normalize all dates using normalize_dates
+    3. Clean all numeric values using clean_numeric_values
+
+    DO NOT:
+    - Invent tool names
+    - Skip required tools
+    - Output raw/unprocessed data
+
+    Final output JSON:
+    {type, records: [...], record_count}""",
     tools=[
         FunctionTool(extract_tabular_data),
         FunctionTool(extract_text_content),

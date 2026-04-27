@@ -4,7 +4,7 @@ All storage tools are async — they run inside the ADK event loop.
 """
 
 import json
-from datetime import datetime
+from datetime import datetime, date
 
 from core.embeddings import generate_embedding
 from core.logging import get_logger
@@ -214,10 +214,19 @@ async def store_esg_scores(records_json: str) -> dict:
     cleaned = []
     for r in records:
         try:
+            raw_date = r.get("date")
+            if isinstance(raw_date, str):
+                parsed_date = datetime.strptime(raw_date, "%Y-%m-%d").date()
+            elif isinstance(raw_date, date):
+                parsed_date = raw_date
+            else:
+                continue  # skip invalid date
+
             composite_raw = r.get("composite", r.get("composite_score"))
+
             cleaned.append({
                 "symbol": str(r["symbol"]).strip(),
-                "date": r["date"],
+                "date": parsed_date,  
                 "provider": str(r.get("provider", "unknown")).strip(),
                 "e_score": float(r["e_score"]) if r.get("e_score") is not None else None,
                 "s_score": float(r["s_score"]) if r.get("s_score") is not None else None,
